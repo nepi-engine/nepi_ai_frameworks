@@ -4,3 +4,6 @@
 [submodule "nepi_ai_darknet"]
 	path = nepi_ai_darknet
 	url = git@github.com:nepi-engine/nepi_ai_darknet.git
+[submodule "nepi_ai_yolov5"]
+	path = nepi_ai_yolov5
+	url = git@github.com:nepi-engine/nepi_ai_yolov5.git
