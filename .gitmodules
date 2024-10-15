@@ -1,6 +1,3 @@
-[submodule "nepi_ai_pytorch"]
-	path = nepi_ai_pytorch
-	url = git@github.com:nepi-engine/nepi_ai_pytorch.git
 [submodule "nepi_ai_darknet"]
 	path = nepi_ai_darknet
 	url = git@github.com:nepi-engine/nepi_ai_darknet.git
