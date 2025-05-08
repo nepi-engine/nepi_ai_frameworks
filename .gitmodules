@@ -1,9 +1,6 @@
 [submodule "nepi_aif_yolov5"]
 	path = nepi_aif_yolov5
 	url = git@github.com:nepi-engine/nepi_aif_yolov5.git
-[submodule "nepi_aif_yolov3"]
-	path = nepi_aif_yolov3
-	url = git@github.com:nepi-engine/nepi_aif_yolov3.git
 [submodule "nepi_aif_yolov8"]
 	path = nepi_aif_yolov8
 	url = git@github.com:nepi-engine/nepi_aif_yolov8.git
