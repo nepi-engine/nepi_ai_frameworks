@@ -1,11 +1,3 @@
-[submodule "nepi_aif_yolov8"]
-	path = nepi_aif_yolov8
-	url = git@github.com:nepi-engine/nepi_aif_yolov8.git
-    branch = main
-[submodule "nepi_aif_yolov11"]
-	path = nepi_aif_yolov11
-	url = git@github.com:nepi-engine/nepi_aif_yolov11.git
-    branch = main
 [submodule "nepi_ai_training"]
 	path = nepi_ai_training
 	url = git@github.com:nepi-engine/nepi_ai_training.git

@@ -1,0 +1,14 @@
+description: Yolov11 ai framework support
+pkg_name: nepi_aif_yolov11
+framework_name: yolov11
+if_file_name: aif_yolov11_if.py
+if_module_name: aif_yolov11_if
+if_class_name: Yolov11AIF
+node_file_dict: 
+  detection: nepi_ai_yolov11_detection_node.py
+models_folder_name: yolov11
+plays_well: True
+supports_preload: True
+wait_for_load: False
+
+
