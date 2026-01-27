@@ -150,11 +150,18 @@ class Yolov11AIF(object):
                 else:
                     node_file_name = self.node_file_dict[model_type]
                 model_size_mb = float(os.path.getsize(weight_file_path) / 1000000)
+
+
+                name = model_key
+                if 'name' in cfg_dict_keys:
+                    name = cfg_dict[model_key]['name']['name']
+
+
                 model_dict = dict()
 
                 model_dict['param_file'] = param_file
                 model_dict['framework'] = framework
-                model_dict['model_name'] = model_name
+                model_dict['model_name'] = name
                 model_dict['model_path'] = self.models_folder_path
                 model_dict['type'] = model_type
                 model_dict['description'] = cfg_dict[model_key]['description']['name']
@@ -166,7 +173,7 @@ class Yolov11AIF(object):
                 model_dict['node_file_name'] = node_file_name
                 model_dict['size'] = model_size_mb
                 model_dict['load_time'] = self.TYPICAL_LOAD_TIME_PER_MB * model_size_mb
-                nepi_sdk.log_msg_info(self.log_name + ": Model dict create for model : " + model_name)
+                nepi_sdk.log_msg_info(self.log_name + ": Model dict created for model : " + model_name)
                 nepi_sdk.log_msg_info(self.log_name + ": Model has size MB: " + str(model_size_mb) + " and load time per MB: " + str(self.TYPICAL_LOAD_TIME_PER_MB)) 
                 nepi_sdk.log_msg_info(self.log_name + ": Model has an estimated load time of: " + str(model_dict['load_time']) + " seconds" ) 
                 models_dict[model_name] = model_dict
