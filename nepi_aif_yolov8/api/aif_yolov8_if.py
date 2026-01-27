@@ -45,7 +45,7 @@ class Yolov8AIF(object):
     TYPICAL_LOAD_TIME_PER_MB = 3.5
     MODEL_FRAMEWORK="yolov8"
 
-
+    models_dict = dict()
     launch_node_process=None
     ai_node_dict = dict()
 
@@ -159,8 +159,8 @@ class Yolov8AIF(object):
 
                 model_dict['param_file'] = param_file
                 model_dict['framework'] = framework
-                model_dict['model_name'] = name
-                model_dict['model_path'] = self.models_folder_path
+                model_dict['name'] = name
+                model_dict['path'] = self.models_folder_path
                 model_dict['type'] = model_type
                 model_dict['description'] = cfg_dict[model_key]['description']['name']
                 model_dict['pkg_name'] = self.pkg_name
@@ -174,32 +174,31 @@ class Yolov8AIF(object):
                 nepi_sdk.log_msg_info(self.log_name + ": Model dict created for model : " + model_name)
                 nepi_sdk.log_msg_info(self.log_name + ": Model has size MB: " + str(model_size_mb) + " and load time per MB: " + str(self.TYPICAL_LOAD_TIME_PER_MB)) 
                 nepi_sdk.log_msg_info(self.log_name + ": Model has an estimated load time of: " + str(model_dict['load_time']) + " seconds" ) 
-                models_dict[model_name] = model_dict
+                self.models_dict[model_name] = model_dict
 
                 
         #nepi_sdk.log_msg_warn(self.log_name + " Returning models dict" + str(models_dict))
-        return models_dict
+        return self.models_dict
 
 
     def launchModel(self, model_dict):
         #nepi_sdk.log_msg_warn(self.log_name + " Launching Model Node with model dict" + str(model_dict))
         success = False
 
-        model_name = model_dict['model_name']
-        node_name = model_name
+        node_name = model_dict['name']
         node_namespace = os.path.join(self.launch_namespace,node_name)
         pkg_name = model_dict['pkg_name']
         node_file_folder = os.path.join("/opt/nepi/nepi_engine/lib",pkg_name)
         node_file_name = model_dict['node_file_name']
         
-        param_file_path = os.path.join(model_dict['model_path'],model_dict['param_file'])
-        weight_file_path = os.path.join(model_dict['model_path'],model_dict['weight_file'])
+        param_file_path = os.path.join(model_dict['path'],model_dict['param_file'])
+        weight_file_path = os.path.join(model_dict['path'],model_dict['weight_file'])
 
         nepi_sdk.log_msg_warn(self.log_name + " Launching Model Node with with settings " + str([pkg_name, node_file_name, node_name]))
         ###############################
         # Launch Node
         node_file_path = os.path.join(node_file_folder,node_file_name)
-        if model_name in self.ai_node_dict.keys():
+        if node_name in self.ai_node_dict.keys():
             nepi_sdk.log_msg_info(self.log_name + ": Node Already Launched: " + node_name)
         elif os.path.exists(node_file_path) == False:
             nepi_sdk.log_msg_info(self.log_name + ": Could not find Node File at: " + node_file_path)
@@ -219,7 +218,7 @@ class Yolov8AIF(object):
             
             [success, msg, node_process] = nepi_sdk.launch_node(pkg_name, node_file_name, node_name, namespace=self.launch_namespace)
             if success == True:
-                self.ai_node_dict[model_name] = {'namesapce':node_namespace, 'process':node_process}
+                self.ai_node_dict[node_name] = {'namesapce':node_namespace, 'process':node_process}
             nepi_sdk.log_msg_info(self.log_name + ": Node launch return msg: " + str(msg))
 
         return success, node_namespace
@@ -227,12 +226,14 @@ class Yolov8AIF(object):
 
 
     def killModel(self,model_name):
-        if model_name in self.ai_node_dict.keys():
-            node_process = self.ai_node_dict[model_name]['process']
-            nepi_sdk.log_msg_info(self.log_name + ": Killing MODEL_FRAMEWORK AI node: " + model_name)
-            if not (None == node_process):
-                node_process.terminate()
-            del self.ai_node_dict[model_name]
+        if model_name in self.models_dict.keys():
+            node_name = self.models_dict['name']
+            if node_name in self.ai_node_dict.keys():
+                node_process = self.ai_node_dict[node_name]['process']
+                nepi_sdk.log_msg_info(self.log_name + ": Killing MODEL_FRAMEWORK AI node: " + node_name)
+                if not (None == node_process):
+                    node_process.terminate()
+                del self.ai_node_dict[node_name]
 
 
  
