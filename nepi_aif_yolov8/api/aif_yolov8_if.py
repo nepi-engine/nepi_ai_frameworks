@@ -49,7 +49,7 @@ class Yolov8AIF(object):
     launch_node_process=None
     ai_node_dict = dict()
 
-    def __init__(self, aif_dict, launch_namespace, mgr_namespace, models_lib_path):
+    def __init__(self, aif_dict, launch_namespace, models_lib_path):
       self.pkg_name = aif_dict['pkg_name']
       self.log_name = self.pkg_name
       nepi_sdk.log_msg_warn(self.log_name + " Instantiating with aif_dict: " +str(aif_dict))
@@ -57,9 +57,6 @@ class Yolov8AIF(object):
         launch_namespace = launch_namespace[:-1]
       self.launch_namespace = launch_namespace  
       #nepi_sdk.log_msg_warn(self.log_name + "Launch Namespace: " + self.launch_namespace)
-      if mgr_namespace[-1] == "/":
-        mgr_namespace = mgr_namespace[:-1]
-      self.mgr_namespace = mgr_namespace
       self.models_lib_path = models_lib_path
 
       self.node_file_dict = aif_dict['node_file_dict']
@@ -156,7 +153,8 @@ class Yolov8AIF(object):
 
 
                 model_dict = dict()
-
+                model_dict['model_name'] = model_name
+                model_dict['node_name'] = name
                 model_dict['param_file'] = param_file
                 model_dict['framework'] = framework
                 model_dict['name'] = name
@@ -177,15 +175,15 @@ class Yolov8AIF(object):
                 self.models_dict[model_name] = model_dict
 
                 
-        #nepi_sdk.log_msg_warn(self.log_name + " Returning models dict" + str(models_dict))
+        #nepi_sdk.log_msg_warn(self.log_name + " Returning models dict" + str(models_dict.keys()))
         return self.models_dict
 
 
     def launchModel(self, model_dict):
         #nepi_sdk.log_msg_warn(self.log_name + " Launching Model Node with model dict" + str(model_dict))
         success = False
-
-        node_name = model_dict['name']
+        model_name = model_dict['model_name']
+        node_name = model_dict['node_name']
         node_namespace = os.path.join(self.launch_namespace,node_name)
         pkg_name = model_dict['pkg_name']
         node_file_folder = os.path.join("/opt/nepi/nepi_engine/lib",pkg_name)
@@ -218,7 +216,7 @@ class Yolov8AIF(object):
             
             [success, msg, node_process] = nepi_sdk.launch_node(pkg_name, node_file_name, node_name, namespace=self.launch_namespace)
             if success == True:
-                self.ai_node_dict[node_name] = {'namesapce':node_namespace, 'process':node_process}
+                self.ai_node_dict[model_name] = {'node_name': node_name, 'namesapce':node_namespace, 'process':node_process}
             nepi_sdk.log_msg_info(self.log_name + ": Node launch return msg: " + str(msg))
 
         return success, node_namespace
@@ -226,14 +224,13 @@ class Yolov8AIF(object):
 
 
     def killModel(self,model_name):
-        if model_name in self.models_dict.keys():
-            node_name = self.models_dict['name']
-            if node_name in self.ai_node_dict.keys():
-                node_process = self.ai_node_dict[node_name]['process']
-                nepi_sdk.log_msg_info(self.log_name + ": Killing MODEL_FRAMEWORK AI node: " + node_name)
-                if not (None == node_process):
-                    node_process.terminate()
-                del self.ai_node_dict[node_name]
+        if model_name in self.ai_node_dict.keys():
+            node_name = self.ai_node_dict[model_name]['node_name']
+            node_process = self.ai_node_dict[model_name]['process']
+            nepi_sdk.log_msg_info(self.log_name + ": Killing MODEL_FRAMEWORK AI node: " + node_name)
+            if not (None == node_process):
+                node_process.terminate()
+            del self.ai_node_dict[model_name]
 
 
  
