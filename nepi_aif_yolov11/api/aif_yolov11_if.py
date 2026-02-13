@@ -149,7 +149,7 @@ class Yolov11AIF(object):
                 model_size_mb = float(os.path.getsize(weight_file_path) / 1000000)
 
 
-                name = model_key
+                name = model_name
                 if 'name' in cfg_dict_keys:
                     name = cfg_dict[model_key]['name']['name']
 
