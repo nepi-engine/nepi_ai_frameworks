@@ -147,17 +147,21 @@ class Yolov8AIF(object):
                     node_file_name = self.node_file_dict[model_type]
                 model_size_mb = float(os.path.getsize(weight_file_path) / 1000000)
 
-                name = model_name
-                if 'name' in cfg_dict_keys:
-                    name = cfg_dict[model_key]['name']['name']
+                display_name = model_name
+                if 'display_name' in cfg_dict_keys:
+                    display_name = cfg_dict[model_key]['display_name']['name']
+
+                node_name = display_name
+                if 'node_name' in cfg_dict_keys:
+                    node_name = cfg_dict[model_key]['node_name']['name']
 
 
                 model_dict = dict()
                 model_dict['model_name'] = model_name
-                model_dict['node_name'] = name
+                model_dict['node_name'] = node_name
                 model_dict['param_file'] = param_file
                 model_dict['framework'] = framework
-                model_dict['name'] = name
+                model_dict['display_name'] = display_name
                 model_dict['path'] = self.models_folder_path
                 model_dict['type'] = model_type
                 model_dict['description'] = cfg_dict[model_key]['description']['name']
