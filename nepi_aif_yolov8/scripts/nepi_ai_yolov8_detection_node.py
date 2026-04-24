@@ -12,6 +12,7 @@ import copy
 import sys
 import cv2
 import numpy as np
+from PIL import Image
 
 
 from nepi_sdk import nepi_sdk
@@ -136,14 +137,14 @@ class Yolov8Detector():
             # Initialize Detector with Blank Img
             self.msg_if.pub_warn("Initializing detector with blank img")
             init_cv2_img=nepi_img.create_cv2_blank_img()
-            det_dict=self.processDetection(init_cv2_img)
+            det_dict=self.processImage(init_cv2_img)
 
             # Run Tests
             NUM_TESTS=10
             self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
             start_time = time.time()
             for i in range(1, NUM_TESTS):
-                det_dict=self.processDetection(init_cv2_img)
+                det_dict=self.processImage(init_cv2_img)
             elapsed_time = round( ( time.time() - start_time ) , 3)  # Slower for real images
             detect_time = round( elapsed_time / NUM_TESTS , 2)
             detect_rate = round( float(1.0)/detect_time , 2)
@@ -162,7 +163,8 @@ class Yolov8Detector():
                                 classes_list = self.classes,
                                 default_config_dict = self.default_config_dict,
                                 all_namespace = self.all_namespace,
-                                processDetectionFunction = self.processDetection,
+                                processImageFunction = self.processImage,
+                                processFileFunction = self.processFile,
                                 has_img_tiling = False)
 
             #########################################################
@@ -178,7 +180,7 @@ class Yolov8Detector():
 
 
 
-    def processDetection(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
+    def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
 
         img_dict['image_width'] = 1
         img_dict['image_height'] = 1 
@@ -272,6 +274,105 @@ class Yolov8Detector():
                     if verbose == True:
                         self.msg_if.pub_info("Detector Detect Time: " + str(detect_time))
                         self.msg_if.pub_info("Got detect dict entry: " + str(detect_dict))
+            
+        return [detect_dict_list, img_dict]
+    
+
+
+
+    def processFile(self, img_file, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
+
+        img_dict['image_width'] = 1
+        img_dict['image_height'] = 1 
+        img_dict['prc_width'] = 1
+        img_dict['prc_height'] = 1 
+        img_dict['ratio'] = 1
+        img_dict['tiling'] = False
+
+        detect_dict_list = []
+        if img_file is not None:
+            if os.path.exists(img_file) == True:
+                try:
+                    with Image.open(img_file) as img:
+                        width, height = img.size
+                except:
+                    if verbose == True:
+                        self.msg_if.pub_info("Failed to read meta data from image file: " + str(img_file))
+                    [width, height] = [None,None]
+
+                if width is not None and height is not None:
+                    img_width = width
+                    img_height = height
+                    img_area = width * height
+
+                    rescale_ratio = 1
+                    prc_width = img_width
+                    prc_height = img_height
+
+                    #self.msg_if.pub_info(":yolov5: Preprocessed image with image size: " + str(img.shape))
+                    # Create image dict with new image
+                    img_dict['image_width'] = img_width 
+                    img_dict['image_height'] = img_height 
+                    img_dict['prc_width'] = prc_width 
+                    img_dict['prc_height'] = prc_height 
+                    img_dict['ratio'] = rescale_ratio 
+                    img_dict['tiling'] = False
+
+
+                    # Update model settings
+                    self.model.conf = threshold  # Confidence threshold (0-1)
+
+                    try:
+                        # Inference
+                        start_time = nepi_sdk.get_time()
+
+                        results = self.model.predict(img_file, conf=threshold, verbose=False) #, device=self.device)
+
+                        detect_time = round( (nepi_sdk.get_time() - start_time) , 3)
+
+
+                        ids = results[0].boxes.cls.to('cpu').tolist()
+                        boxes = results[0].boxes.xyxy.to('cpu').tolist()
+                        confs = results[0].boxes.conf.to('cpu').tolist()
+
+                        # self.msg_if.pub_warn("Got detection ids: " + str(ids))
+                        # self.msg_if.pub_warn("Got detection boxes: " + str(boxes))
+                        # self.msg_if.pub_warn("Got detection confs: " + str(confs))
+                    
+                    except Exception as e:
+                        self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
+                
+                    
+                    for i, idf in enumerate(ids):
+                        id = int(idf)
+                        det_name = self.classes[id]
+                        det_id = id
+                        det_prob = confs[i]
+                        det_box = boxes[i]
+                        det_area = (det_box[2] - det_box[0]) * (det_box[3] - det_box[1])
+                        detect_dict = {
+                            'name': det_name, # Class String Name
+                            'id': det_id, # Class Index from Classes List
+                            'uid': '', # Reserved for unique tracking by downstream applications
+                            'prob': det_prob, # Probability of detection
+                            'xmin': int(det_box[0] ),
+                            'ymin': int(det_box[1] ) ,
+                            'xmax': int(det_box[2] ),
+                            'ymax': int(det_box[3]),
+                            'area_pixels': int(det_area),
+                            'area_ratio': det_area / img_area
+                        }
+                        # Rescale to orig image size
+                        detect_dict['xmin'] = int(detect_dict['xmin'] * rescale_ratio)
+                        detect_dict['ymin'] = int(detect_dict['ymin'] * rescale_ratio)
+                        detect_dict['xmax'] = int(detect_dict['xmax'] * rescale_ratio)
+                        detect_dict['ymax'] = int(detect_dict['ymax'] * rescale_ratio)
+                        detect_dict_list.append(detect_dict)
+
+
+                        if verbose == True:
+                            self.msg_if.pub_info("Detector Detect Time: " + str(detect_time))
+                            self.msg_if.pub_info("Got detect dict entry: " + str(detect_dict))
             
         return [detect_dict_list, img_dict]
 
