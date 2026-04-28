@@ -73,14 +73,15 @@ class Yolov8AIF(object):
 
 
     def launchModel(self, model_dict):
-        #self.logger.log_warn("Launching Model Node with model dict" + str(model_dict))
-        [success, node_namespace, self.node_dict] = nepi_aifs.launchModelNode(model_dict, self.node_file_dict, self.launch_namespace, self.node_dict)
+        self.logger.log_warn("Launching Model Node with model dict" + str(model_dict))
+        [success, node_namespace, self.node_dict] = nepi_aifs.launchModelNode( model_dict, self.node_file_dict, self.launch_namespace, self.node_dict)
         return success, node_namespace
 
 
 
-    def killModel(self,model_name):
-        [success, self.node_dict] = nepi_aifs.killModelNode(model_name,self.node_dict)
+    def killModel(self,node_name):
+        self.logger.log_warn("Killing Node " + str(node_name))
+        [success, self.node_dict] = nepi_aifs.killModelNode(node_name,self.node_dict)
         return success
  
    

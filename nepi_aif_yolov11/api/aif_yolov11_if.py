@@ -82,8 +82,8 @@ class Yolov11AIF(object):
 
 
 
-    def killModel(self,model_name):
-        [success, self.node_dict] = nepi_aifs.killModelNode(model_name,self.node_dict)
+    def killModel(self,node_name):
+        [success, self.node_dict] = nepi_aifs.killModelNode(node_name,self.node_dict)
         return success
  
    
