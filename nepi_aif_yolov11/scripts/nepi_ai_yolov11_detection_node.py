@@ -121,8 +121,9 @@ class Yolov11Detector():
             # Load Model
 
             # Import ultralytics here so we can message
-            self.msg_if.pub_warn("Importing torch and ultralytics YOLO package")
+            self.msg_if.pub_warn("Importing torch package")
             import torch
+            self.msg_if.pub_warn("Importing ultralytics YOLO package")
             from ultralytics import YOLO
 
 
