@@ -15,7 +15,7 @@
 # ====================
 # - mailto:nepi@numurus.com
 
-
+import torch
 import os
 import time
 import copy
@@ -123,8 +123,6 @@ class Yolov8Detector():
             # Load Model
 
             # Import ultralytics here so we can message
-            self.msg_if.pub_warn("Importing torch package")
-            import torch
             self.msg_if.pub_warn("Importing ultralytics YOLO package")
             from ultralytics import YOLO
 
