@@ -155,7 +155,7 @@ class Yolov8Detector():
             for i in range(1, NUM_TESTS):
                 det_dict=self.processImage(init_cv2_img)
             elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
-            detect_time = round( elapsed_time / NUM_TESTS , 4)
+            detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
             detect_rate = round( float(1.0)/detect_time , 4)
             self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
             self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
