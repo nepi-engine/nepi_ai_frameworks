@@ -19,10 +19,11 @@
 import os
 import os.path
 
-from nepi_sdk import nepi_sdk
-from nepi_sdk.nepi_sdk import logger as Logger
-from nepi_sdk import nepi_aifs
 
+from nepi_sdk import nepi_sdk
+from nepi_sdk import nepi_utils
+from nepi_sdk import nepi_aifs
+from nepi_sdk.nepi_sdk import logger as Logger
 
 from std_msgs.msg import Empty, Float32, Int32, String, Bool
 
@@ -68,7 +69,34 @@ class Yolov8AIF(object):
       self.models_folder_path =  os.path.join(self.models_lib_path, self.models_folder)
     
     #################
+    # Framework Functions
+
+    def checkFrameworkSupport(self):
+        supported = True
+
+        if supported == True:
+            check='cv2'
+            if nepi_utils.check_module_available(check) == False:
+                supported = False
+                self.logger.log_warn("Framework failed check: " + check)
+
+        if supported == True:
+            check='torch'
+            if nepi_utils.check_module_available(check) == False:
+                supported = False
+                self.logger.log_warn("Framework failed check: " + check)
+
+        if supported == True:
+            check='ultralytics'
+            if nepi_utils.check_module_available(check) == False:
+                supported = False
+                self.logger.log_warn("Framework failed check: " + check)
+
+        return supported
+
+    #################
     # Model Functions
+
 
     def getModelsDict(self):
         # Try to obtain the path to MODEL_FRAMEWORK models from the system_mgr
