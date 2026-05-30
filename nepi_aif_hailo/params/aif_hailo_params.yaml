@@ -1,0 +1,12 @@
+description: Hailo ai framework support
+pkg_name: nepi_aif_hailo
+framework_name: hailo
+if_file_name: aif_hailo_if.py
+if_module_name: aif_hailo_if
+if_class_name: HailoAIF
+node_file_dict:
+  detection: nepi_ai_hailo_detection_node.py
+models_folder_name: hailo
+plays_well: True
+supports_preload: True
+wait_for_load: False

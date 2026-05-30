@@ -1,0 +1,295 @@
+#!/usr/bin/env python
+#
+# Copyright (c) 2024 Numurus <https://www.numurus.com>.
+#
+# This file is part of nepi applications (nepi_ai_frameworks) repo
+# (see https://https://github.com/nepi-engine/nepi_ai_frameworks)
+#
+# License: nepi applications are licensed under the "Numurus Software License",
+# which can be found at: <https://numurus.com/wp-content/uploads/Numurus-Software-License-Terms.pdf>
+#
+# Redistributions in source code must retain this top-level comment bstab.
+# Plagiarizing this software to sidestep the license obligations is illegal.
+#
+# Contact Information:
+# ====================
+# - mailto:nepi@numurus.com
+
+import os
+import time
+import copy
+import sys
+import cv2
+import numpy as np
+from PIL import Image
+
+
+from nepi_sdk import nepi_sdk
+from nepi_sdk import nepi_utils
+from nepi_sdk import nepi_img
+from nepi_sdk import nepi_ais
+
+from nepi_api.ai_if_detector import AiDetectorIF
+from nepi_api.messages_if import MsgIF
+
+
+
+class HailoDetector():
+    default_config_dict = {'threshold': 0.3, 'max_rate': 5}
+
+    #######################
+    ### Node Initialization
+    DEFAULT_NODE_NAME = "ai_hailo"
+    MODEL_FRAMEWORK = "hailo"
+
+    def __init__(self):
+        ####  NODE Initialization ####
+        nepi_sdk.init_node(name=self.DEFAULT_NODE_NAME)
+        self.class_name = type(self).__name__
+        self.base_namespace = nepi_sdk.get_base_namespace()
+        self.node_name = nepi_sdk.get_node_name()
+        self.node_namespace = nepi_sdk.get_node_namespace()
+
+        ##############################
+        # Create Msg Class
+        self.msg_if = MsgIF(log_name=self.class_name)
+        self.msg_if.pub_info("Starting Node Initialization Processes")
+
+        ##############################
+        # Initialize Class Variables
+
+        ############  Get ALL_NAMESPACE if provided
+        param_namespace = nepi_sdk.create_namespace(self.node_namespace, 'all_namespace')
+        self.all_namespace = nepi_sdk.get_param(param_namespace, "")
+        if self.all_namespace == "":
+            self.all_namespace = self.node_namespace
+
+        ############  Get WEIGHT_FILE Path
+        param_namespace = nepi_sdk.create_namespace(self.node_namespace, 'weight_file_path')
+        self.weight_file_path = str(nepi_sdk.get_param(param_namespace, ""))
+        self.msg_if.pub_warn("Got weight file path: " + self.weight_file_path)
+        if self.weight_file_path == "" or os.path.exists(self.weight_file_path) == False:
+            self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
+            nepi_sdk.signal_shutdown("Failed to get valid weight path, got: " + self.weight_file_path)
+            return
+
+        ############  Get PARAMS_FILE Path
+        param_namespace = nepi_sdk.create_namespace(self.node_namespace, 'param_file_path')
+        self.param_file_path = str(nepi_sdk.get_param(param_namespace, ""))
+        self.msg_if.pub_warn("Got param file path: " + self.param_file_path)
+        if self.param_file_path == "" or os.path.exists(self.param_file_path) == False:
+            self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
+            nepi_sdk.signal_shutdown("Failed to get valid param path, got: " + self.param_file_path)
+            return
+
+        ############### Load Model Params
+        yaml_dict = nepi_utils.read_dict_from_file(self.param_file_path)
+
+        self.msg_if.pub_warn("Got model info: " + str(yaml_dict))
+
+        if yaml_dict is None:
+            self.msg_if.pub_warn("Failed load model info dict from: " + str(self.param_file_path))
+            nepi_sdk.signal_shutdown("Failed to get valid model info from param: " + str(self.param_file_path))
+            return
+        else:
+            try:
+                model_info_dict = yaml_dict['ai_model']
+                model_framework = model_info_dict['framework']['name']
+                model_type = model_info_dict['type']['name']
+                model_description = model_info_dict['description']['name']
+                self.classes = model_info_dict['classes']['names']
+                self.proc_img_width = model_info_dict['image_size']['image_width']['value']
+                self.proc_img_height = model_info_dict['image_size']['image_height']['value']
+            except Exception as e:
+                self.msg_if.pub_warn("Failed to get required model info from params: " + str(e))
+                nepi_sdk.signal_shutdown("Failed to get valid model file paths")
+                return
+
+            if model_framework != self.MODEL_FRAMEWORK:
+                self.msg_if.pub_warn("Model not a " + self.MODEL_FRAMEWORK + " model: " + model_framework)
+                nepi_sdk.signal_shutdown("Model not a valid framework")
+                return
+
+            if model_type != 'detection':
+                self.msg_if.pub_warn("Model not a valid type: " + model_type)
+                nepi_sdk.signal_shutdown("Model not a valid type")
+                return
+
+            ##############################
+            # Load Model
+
+            self.msg_if.pub_warn("Importing hailo_platform package")
+            from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
+
+            self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
+            self.hef = HEF(self.weight_file_path)
+            self.target = VDevice()
+            configure_params = ConfigureParams.create_from_hef(self.hef, interface=HailoStreamInterface.PCIe)
+            self.network_groups = self.target.configure(self.hef, configure_params)
+            self.network_group = self.network_groups[0]
+            self.network_group_params = self.network_group.create_params()
+
+            input_vstream_info = self.hef.get_input_vstream_infos()[0]
+            self.input_height = input_vstream_info.shape[0]
+            self.input_width = input_vstream_info.shape[1]
+
+            self.input_vstream_params = InputVStreamParams.make(self.network_group, format_type=FormatType.FLOAT32)
+            self.output_vstream_params = OutputVStreamParams.make(self.network_group, format_type=FormatType.FLOAT32)
+
+            # Initialize with blank image
+            self.msg_if.pub_warn("Initializing detector with blank img")
+            init_cv2_img = nepi_img.create_cv2_blank_img()
+            det_dict = self.processImage(init_cv2_img)
+
+            # Speed test
+            NUM_TESTS = 10
+            self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+            start_time = time.time()
+            for i in range(1, NUM_TESTS):
+                det_dict = self.processImage(init_cv2_img)
+            elapsed_time = round((time.time() - start_time), 4)
+            detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
+            detect_rate = round(float(1.0) / detect_time, 4)
+            self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+            self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+
+            # Create API IF Class
+            self.msg_if.pub_info("Starting ai_if with default_config_dict: " + str(self.default_config_dict))
+            self.ai_if = AiDetectorIF(
+                namespace=self.node_namespace,
+                model_name=self.node_name,
+                framework=model_framework,
+                description=model_description,
+                proc_img_height=self.proc_img_height,
+                proc_img_width=self.proc_img_width,
+                classes_list=self.classes,
+                default_config_dict=self.default_config_dict,
+                all_namespace=self.all_namespace,
+                processImageFunction=self.processImage,
+                processFileFunction=self.processFile,
+                has_img_tiling=False)
+
+            nepi_sdk.spin()
+
+
+    def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
+        from hailo_platform import InferVStreams
+
+        img_dict['image_width'] = 1
+        img_dict['image_height'] = 1
+        img_dict['prc_width'] = 1
+        img_dict['prc_height'] = 1
+        img_dict['ratio'] = 1
+        img_dict['tiling'] = False
+
+        detect_dict_list = []
+        if cv2_img is not None:
+            cv2_img_shape = cv2_img.shape
+            cv2_img_width = cv2_img_shape[1]
+            cv2_img_height = cv2_img_shape[0]
+            cv2_img_area = cv2_img_shape[0] * cv2_img_shape[1]
+
+            if resize == True:
+                [cv2_img, rescale_ratio, prc_width, prc_height] = nepi_img.resize_proportionally(
+                    cv2_img, self.proc_img_width, self.proc_img_height, interp=cv2.INTER_NEAREST)
+            else:
+                rescale_ratio = 1
+                prc_width = cv2_img_width
+                prc_height = cv2_img_height
+
+            if nepi_img.is_gray(cv2_img):
+                cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_GRAY2BGR)
+            else:
+                cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+
+            img_dict['image_width'] = cv2_img_width
+            img_dict['image_height'] = cv2_img_height
+            img_dict['prc_width'] = prc_width
+            img_dict['prc_height'] = prc_height
+            img_dict['ratio'] = rescale_ratio
+            img_dict['tiling'] = False
+
+            input_img = cv2.resize(cv2_img, (self.input_width, self.input_height)).astype(np.float32) / 255.0
+            input_data = {self.hef.get_input_vstream_infos()[0].name: np.expand_dims(input_img, axis=0)}
+
+            try:
+                start_time = nepi_sdk.get_time()
+
+                with InferVStreams(self.network_group, self.input_vstream_params, self.output_vstream_params) as infer_pipeline:
+                    with self.network_group.activate(self.network_group_params):
+                        raw_detections = infer_pipeline.infer(input_data)
+
+                detect_time = round((nepi_sdk.get_time() - start_time), 3)
+
+                output_name = list(raw_detections.keys())[0]
+                detections = raw_detections[output_name][0]
+
+                for det in detections:
+                    det_prob = float(det[4])
+                    if det_prob < threshold:
+                        continue
+                    det_id = int(det[5])
+                    if det_id >= len(self.classes):
+                        continue
+                    det_name = self.classes[det_id]
+                    xmin = int(det[0] * cv2_img_width / self.input_width * rescale_ratio)
+                    ymin = int(det[1] * cv2_img_height / self.input_height * rescale_ratio)
+                    xmax = int(det[2] * cv2_img_width / self.input_width * rescale_ratio)
+                    ymax = int(det[3] * cv2_img_height / self.input_height * rescale_ratio)
+                    det_area = (xmax - xmin) * (ymax - ymin)
+                    detect_dict = {
+                        'name': det_name,
+                        'id': det_id,
+                        'uid': '',
+                        'prob': det_prob,
+                        'xmin': xmin,
+                        'ymin': ymin,
+                        'xmax': xmax,
+                        'ymax': ymax,
+                        'area_pixels': int(det_area),
+                        'area_ratio': det_area / cv2_img_area
+                    }
+                    detect_dict_list.append(detect_dict)
+
+                    if verbose == True:
+                        self.msg_if.pub_info("Detector Detect Time: " + str(detect_time))
+                        self.msg_if.pub_info("Got detect dict entry: " + str(detect_dict))
+
+            except Exception as e:
+                self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
+
+        return [detect_dict_list, img_dict]
+
+
+    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
+
+        img_dict['image_width'] = 1
+        img_dict['image_height'] = 1
+        img_dict['prc_width'] = 1
+        img_dict['prc_height'] = 1
+        img_dict['ratio'] = 1
+        img_dict['tiling'] = False
+
+        detect_dict_list = []
+        if img_file is not None:
+            if os.path.exists(img_file) == True:
+                try:
+                    with Image.open(img_file) as img:
+                        width, height = img.size
+                except:
+                    if verbose == True:
+                        self.msg_if.pub_info("Failed to read meta data from image file: " + str(img_file))
+                    [width, height] = [None, None]
+
+                if width is not None and height is not None:
+                    cv2_img = cv2.imread(img_file)
+                    if cv2_img is not None:
+                        [detect_dict_list, img_dict] = self.processImage(
+                            cv2_img, img_dict=img_dict, threshold=threshold, resize=resize, verbose=verbose)
+
+        return [detect_dict_list, img_dict]
+
+
+
+if __name__ == '__main__':
+    HailoDetector()
