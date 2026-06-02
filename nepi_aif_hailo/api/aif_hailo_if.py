@@ -44,8 +44,8 @@ TEST_LAUNCH_NAMESPACE = "/nepi/hailo_test"
 TEST_MGR_NAMESPACE = "/nepi/ai_detector_mgr"
 TEST_MODELS_LIB_PATH = "/mnt/nepi_storage/ai_models/"
 
-
 MODEL_FRAMEWORK = "hailo"
+
 
 class HailoAIF(object):
 
@@ -66,6 +66,7 @@ class HailoAIF(object):
         self.models_folder = aif_dict['models_folder_name']
         self.models_folder_path = os.path.join(self.models_lib_path, self.models_folder)
 
+
     #################
     # Framework Functions
 
@@ -79,7 +80,8 @@ class HailoAIF(object):
                 self.logger.log_warn("Framework failed check: " + check)
 
         if supported == True:
-            if nepi_utils.is_valid(hailo) == False:
+            check = 'is_valid_hailo'
+            if nepi_utils.bash_nepi_check(check) == False:
                 supported = False
                 self.logger.log_warn("Framework failed check: " + check)
                 
@@ -89,12 +91,31 @@ class HailoAIF(object):
     # Model Functions
 
     def getModelsDict(self):
-        self.logger.log_warn("Looking for model files in folder: " + self.models_folder_path)
-        models_dict = nepi_aifs.loadModelsDict(MODEL_FRAMEWORK, self.pkg_name, self.models_folder_path)
+        WEIGHTS_FOLDER = None
+        hailo_hw_version = str(nepi_utils.bash_nepi_get('get_hailo_hw_version')).replace(" ","")
+        if hailo_hw_version == "8":
+            self.logger.log_warn("Got Hailo HW Version: " + hailo_hw_version)
+            WEIGHTS_FOLDER = 'hailo8'
+        elif hailo_hw_version == "10":
+            self.logger.log_warn("Got Hailo HW Version: " + hailo_hw_version)
+            WEIGHTS_FOLDER = 'hailo10'
+        else:
+            self.logger.log_warn("Got Unknown Hailo HW Version: " + hailo_hw_version)
+
+
+        if WEIGHTS_FOLDER is not None:
+            models_folder_path = os.path.join(self.models_folder_path, WEIGHTS_FOLDER)
+
+
+
+
+        self.logger.log_warn("Looking for model files in folder: " + models_folder_path)
+        models_dict = nepi_aifs.loadModelsDict(MODEL_FRAMEWORK, self.pkg_name, models_folder_path)
         ##################
         # Add custom entries to models_dict if needed here.
         ##################
         self.logger.log_warn("Returning models dict" + str(models_dict.keys()))
+        self.logger.log_warn("Returning models dict" + str(models_dict))
         return models_dict
 
     def launchModel(self, model_dict):
