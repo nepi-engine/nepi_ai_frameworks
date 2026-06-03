@@ -156,12 +156,12 @@ class HailoDetector():
                 if self.configure_params is not None and self.network_group_params is not None:
                     print("Got network config: " + str(self.network_group_params))
                     # Get stream info for input/output naming
-                    self.input_vstream_info = hef.get_self.input_vstream_infos()[0]
-                    self.input_vstreams_params = InputVStreamParams.make_from_self.network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
+                    self.input_vstream_info = self.hef.get_input_vstream_infos()[0]
+                    self.input_vstreams_params = InputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
                     print("")
                     print("self.input_vstream_info " + str(self.input_vstreams_params))
                     
-                    self.output_vstreams_params = OutputVStreamParams.make_from_self.network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
+                    self.output_vstreams_params = OutputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
                     print("")
                     print("self.output_vstreams_params " + str(self.output_vstreams_params))
                     print("")
@@ -223,17 +223,28 @@ class HailoDetector():
     
 
             # Get expected model input dimensions
-            input_shape = self.input_info.shape
+            input_info = self.hef.get_input_stream_infos()[0]
+            input_shape = input_info.shape
+            #print(input_shape)
             input_height, input_width = input_shape[0], input_shape[1]
 
             # Resize image to match model input and normalize (if required by your pre-processing)
             cv2_img_shape = cv2_img.shape
             cv2_img_width = cv2_img_shape[1]
             cv2_img_height = cv2_img_shape[0]
+            cv2_img_area = cv2_img_shape[0] * cv2_img_shape[1]
+
 
 
             resized_image = cv2.resize(img_rgb, (input_width, input_height), interpolation=cv2.INTER_LINEAR)
             
+            img_dict['image_width'] = cv2_img_width
+            img_dict['image_height'] = cv2_img_height
+            img_dict['prc_width'] = input_width
+            img_dict['prc_height'] = input_height
+            img_dict['ratio'] = 1
+            img_dict['tiling'] = False
+
             # Normalize the image (typically [0, 255] -> [0, 1] or [-1, 1] depending on your HEF model)
             #input_data = resized_image.astype(np.float32) / 255.0 
 
@@ -257,19 +268,18 @@ class HailoDetector():
 
 
                     #######################
-                    detect_dict_list = None
                     if results is not None:
                         try:
-                            for class_id, class_detections in enumerate(results[list(results.keys())[0]][0]):
+                            for class_ind, class_detections in enumerate(results[list(results.keys())[0]][0]):
                                 if class_detections.shape[0]>0:
 
                                     for detection in class_detections:
                                         if len(detection) >= 5:
-                                            if detection[4] > THRESHOLD:
-                                
-
-                                                det_name = "class_" + str(class_id) #### NEED TO GET CLASS NAMES FROM YAML
-                                                det_id = class_id
+                                            if detection[4] > threshold:
+                                                
+                                                #print(detection)
+                                                det_name = self.classes[class_ind]
+                                                det_id = class_ind
                                                 det_prob = round(detection[4].item(), 5)
                                                 [ymin, xmin, ymax, xmax] = detection[:4]
 
@@ -297,7 +307,8 @@ class HailoDetector():
                                                 detect_dict_list.append(detect_dict)
                         except Exception as e:
                             self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
-
+        # if len(detect_dict_list) > 0:
+        #     print(detect_dict_list[0])
         return [detect_dict_list, img_dict]
 
 
