@@ -2,7 +2,12 @@
 
 ## Purpose
 
-`nepi_ai_frameworks` provides pluggable AI model framework adapters for the NEPI platform. Each adapter is an independent ROS package that implements the NEPI AI Framework Interface (AIF) for a specific inference framework (currently YOLOv8 and YOLOv11). The `ai_models_mgr` node in `nepi_engine` discovers and invokes these adapters to enumerate available models and launch inference nodes. This submodule also contains training infrastructure for producing new YOLO-compatible models.
+`nepi_ai_frameworks` provides pluggable AI model framework adapters for the NEPI platform. Each adapter is an independent ROS package that implements the NEPI AI Framework Interface (AIF) for a specific inference framework (currently YOLOv8, YOLOv11, YOLO26, and Hailo). The `ai_models_mgr` node in `nepi_engine` discovers and invokes these adapters to enumerate available models and launch inference nodes. This submodule also contains training infrastructure for producing new YOLO-compatible models.
+
+> **Adding a new model or framework?** Follow the step-by-step runbook in
+> [`ADD_NEW_AI_MODEL_AND_FRAMEWORK.md`](ADD_NEW_AI_MODEL_AND_FRAMEWORK.md) — it covers cloning an adapter
+> (clone yolov8, never yolov11), the model-config yaml schema, extracting classes/image-size from a
+> `.pt`/`.onnx`, deployment paths, and the device runtime gotchas (notably the onnxruntime `GLIBCXX` pin).
 
 ## Architecture
 
@@ -124,3 +129,4 @@ Training dependencies (development machine only):
 ## Decision Log
 
 - 2026-03 — CLAUDE.md created — Initial developer reference, Claude Code authoring pass.
+- 2026-06-28 — Added `nepi_aif_yolo26` adapter (Ocean YOLO26 ONNX) and the `ADD_NEW_AI_MODEL_AND_FRAMEWORK.md` runbook. Recorded the onnxruntime `GLIBCXX_3.4.29` incompatibility on Ubuntu 20.04 / JetPack 5 devices (pin onnxruntime ≤ 1.15.1 for CPU) and the latent `UnboundLocalError` in the yolov8/yolov11 detection nodes when inference throws.

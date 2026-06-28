@@ -1,0 +1,13 @@
+description: Yolo26 ai framework support
+pkg_name: nepi_aif_yolo26
+framework_name: yolo26
+if_file_name: aif_yolo26_if.py
+if_module_name: aif_yolo26_if
+if_class_name: Yolo26AIF
+node_file_dict: 
+  detection: nepi_ai_yolo26_detection_node.py
+models_folder_name: yolo26
+plays_well: True
+supports_preload: True
+wait_for_load: False
+
