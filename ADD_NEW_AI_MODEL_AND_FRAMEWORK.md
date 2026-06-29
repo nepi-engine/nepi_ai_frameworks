@@ -220,10 +220,23 @@ Expect the class dict and `boxes: 0` on a blank frame. Then restart the model no
   `manylinux2014` build, **≤ 1.15.1**, into the **node's** interpreter (not bare `pip3`, which may be a
   different env):
   ```bash
-  sudo python3 -m pip install --force-reinstall --no-deps "onnxruntime==1.15.1"
+  sudo python3 -m pip uninstall -y onnxruntime onnxruntime-gpu
+  sudo python3 -m pip install --no-deps "onnxruntime==1.15.1"
   python3 -c "import onnxruntime; print(onnxruntime.__version__, onnxruntime.get_available_providers())"
   ```
   Check the device ceiling: `strings /usr/lib/aarch64-linux-gnu/libstdc++.so.6 | grep GLIBCXX | sort -V | tail`.
+
+- **Ultralytics auto-reinstalls onnxruntime at runtime (this is why the pin above "won't stick").** When
+  CUDA is present, Ultralytics' ONNX backend runs `check_requirements(("onnx", "onnxruntime-gpu"))` and,
+  with auto-install on, pip-installs a newer `onnxruntime-gpu` — re-triggering the `GLIBCXX_3.4.29` failure
+  on every node launch (rapid retry loop in the logs). The detection node guards against this by setting,
+  **before importing ultralytics**:
+  ```python
+  os.environ["YOLO_AUTOINSTALL"] = "false"   # don't let ultralytics pip-install at runtime
+  os.environ["YOLO_OFFLINE"] = "true"
+  ```
+  If you ever load a model outside the node (manual test), use `YOLO_AUTOINSTALL=false` (or `YOLO_OFFLINE=1`)
+  on the command line for the same reason.
 
 - **CPU vs GPU on Jetson.** PyPI `onnxruntime==1.15.1` is **CPU-only** (slow). For GPU use the
   **NVIDIA Jetson Zoo `onnxruntime-gpu` wheel** matched to your JetPack + Python, or build a **TensorRT

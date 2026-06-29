@@ -119,8 +119,16 @@ class Yolo26Detector():
 
 
 
-            ##############################  
+            ##############################
             # Load Model
+
+            # Stop Ultralytics from pip-installing packages at runtime. With CUDA
+            # present it otherwise auto-installs onnxruntime-gpu, which pulls a
+            # build that needs a newer libstdc++ (GLIBCXX_3.4.29) than these
+            # devices have, clobbering the pinned onnxruntime and breaking the
+            # model load. Must be set before importing ultralytics.
+            os.environ["YOLO_AUTOINSTALL"] = "false"
+            os.environ["YOLO_OFFLINE"] = "true"
 
             # Import ultralytics here so we can message
             self.msg_if.pub_warn("Importing ultralytics YOLO package")
