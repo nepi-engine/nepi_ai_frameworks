@@ -30,7 +30,7 @@ from nepi_sdk import nepi_utils
 from nepi_sdk import nepi_img
 from nepi_sdk import nepi_ais
 
-from nepi_api.ai_if_detector import AiDetectorIF
+from nepi_api.process_if_ai_detector import AiDetectorIF
 from nepi_api.messages_if import MsgIF
 
 
