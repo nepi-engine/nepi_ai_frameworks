@@ -80,6 +80,12 @@ class HailoAIF(object):
                 self.logger.log_warn("Framework failed check: " + check)
 
         if supported == True:
+            check = 'hailo_platform'
+            if nepi_utils.check_module_available(check) == False:
+                supported = False
+                self.logger.log_warn("Framework failed check: " + check)
+
+        if supported == True:
             check = 'is_valid_hailo'
             if nepi_utils.bash_nepi_check(check) == False:
                 supported = False
