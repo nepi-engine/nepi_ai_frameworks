@@ -28,7 +28,7 @@ from PIL import Image
 from nepi_sdk import nepi_sdk
 from nepi_sdk import nepi_utils
 from nepi_sdk import nepi_img
-from nepi_sdk import nepi_ais
+
 
 from nepi_api.node_if_ai_detector import AiDetectorIF
 from nepi_api.messages_if import MsgIF
