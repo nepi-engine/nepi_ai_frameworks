@@ -58,11 +58,6 @@ class Yolo26Detector():
        ##############################  
         # Initialize Class Variables
 
-        ############  Get ALL_NAMESPACE if provided
-        param_namespace = nepi_sdk.create_namespace(self.node_namespace,'all_namespace')
-        self.all_namespace = nepi_sdk.get_param(param_namespace,"")
-        if self.all_namespace == "":
-            self.all_namespace = self.node_namespace
 
 
         ############  Get WEIGHT_FILE Path
@@ -178,10 +173,8 @@ class Yolo26Detector():
                                 proc_img_width = self.proc_img_width,
                                 classes_list = self.classes,
                                 default_config_dict = self.default_config_dict,
-                                all_namespace = self.all_namespace,
                                 processImageFunction = self.processImage,
-                                processFileFunction = self.processFile,
-                                has_img_tiling = False)
+                                processFileFunction = self.processFile)
 
             #########################################################
             ## Initiation Complete
