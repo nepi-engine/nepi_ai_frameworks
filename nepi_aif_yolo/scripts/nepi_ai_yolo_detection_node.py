@@ -29,19 +29,18 @@ from nepi_sdk import nepi_sdk
 from nepi_sdk import nepi_utils
 from nepi_sdk import nepi_img
 
-
 from nepi_api.node_if_ai_detector import AiDetectorIF
 from nepi_api.messages_if import MsgIF
 
 
 
-class Yolov8Detector():
-    default_config_dict = {'threshold': 0.3,'max_rate': 5}
+class YoloDetector():
+    default_config_dict = {'threshold': 0.3,'max_rate': 10}
 
     #######################
     ### Node Initialization
-    DEFAULT_NODE_NAME = "ai_yolov8" # Can be overwitten by luanch command
-    MODEL_FRAMEWORK="yolov8"
+    DEFAULT_NODE_NAME = "yolo_detector" # Can be overwitten by luanch command
+    MODEL_FRAMEWORK="yolo"
 
     def __init__(self):
         ####  NODE Initialization ####
@@ -101,7 +100,7 @@ class Yolov8Detector():
                 self.msg_if.pub_warn("Failed to get required model info from params: " + str(e))
                 nepi_sdk.signal_shutdown("Failed to get valid model file paths")
                 return
-            if model_framework != self.MODEL_FRAMEWORK:
+            if self.MODEL_FRAMEWORK not in model_framework:
                 self.msg_if.pub_warn("Model not a " + self.MODEL_FRAMEWORK  + " model: " + model_framework)
                 nepi_sdk.signal_shutdown("Model not a valid framework")
                 return
@@ -114,8 +113,16 @@ class Yolov8Detector():
 
 
 
-            ##############################  
+            ##############################
             # Load Model
+
+            # Stop Ultralytics from pip-installing packages at runtime. With CUDA
+            # present it otherwise auto-installs onnxruntime-gpu, which pulls a
+            # build that needs a newer libstdc++ (GLIBCXX_3.4.29) than these
+            # devices have, clobbering the pinned onnxruntime and breaking the
+            # model load. Must be set before importing ultralytics.
+            os.environ["YOLO_AUTOINSTALL"] = "false"
+            os.environ["YOLO_OFFLINE"] = "true"
 
             # Import ultralytics here so we can message
             self.msg_if.pub_warn("Importing ultralytics YOLO package")
@@ -133,8 +140,21 @@ class Yolov8Detector():
 
             ##################################################
             self.msg_if.pub_warn("Loading model: " + self.node_name)
-            self.model = YOLO(self.weight_file_path)
-            #self.model.half() # Reduce from INT16 to INT8
+            self.onnx_file_path = self.weight_file_path.replace('.pt','.onnx')
+            self.msg_if.pub_warn("Looking for optimized onnx model: " + self.onnx_file_path)
+            if os.path.exists(self.onnx_file_path) == False:
+                self.msg_if.pub_warn("Creating for optimized onnx model: " + self.onnx_file_path)
+                model = YOLO(self.weight_file_path)
+                # Export the model specifying half precision and dynamic axes
+                model.export(format='engine', half=True, dynamic=True)
+            if os.path.exists(self.onnx_file_path) == True:
+                self.msg_if.pub_warn("Found optimized onnx model " + str(os.path.basename(self.onnx_file_path)))
+                self.model = YOLO(self.onnx_file_path)
+                self.msg_if.pub_warn("Loaded optimized engine model")
+            else:
+                self.msg_if.pub_warn("Optimized engine model not found")
+                self.model = YOLO(self.weight_file_path)
+                self.msg_if.pub_warn("Using non optimized engine model " + str(os.path.basename(self.weight_file_path)))
             ##############################  
 
 
@@ -144,16 +164,16 @@ class Yolov8Detector():
             det_dict=self.processImage(init_cv2_img)
 
             # Run Tests
-            NUM_TESTS=10
-            self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
-            start_time = time.time()
-            for i in range(1, NUM_TESTS):
-                det_dict=self.processImage(init_cv2_img)
-            elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
-            detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
-            detect_rate = round( float(1.0)/detect_time , 4)
-            self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-            self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+            # NUM_TESTS=10
+            # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+            # start_time = time.time()
+            # for i in range(1, NUM_TESTS):
+            #     det_dict=self.processImage(init_cv2_img)
+            # elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
+            # detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
+            # detect_rate = round( float(1.0)/detect_time , 4)
+            # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+            # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
 
             # Create API IF Class
             self.msg_if.pub_info("Starting ai_if with default_config_dict: " + str(self.default_config_dict))
@@ -225,11 +245,16 @@ class Yolov8Detector():
                 # Update model settings
                 self.model.conf = threshold  # Confidence threshold (0-1)
 
+                # Default to empty results so a failed inference returns no
+                # detections instead of raising UnboundLocalError below
+                ids = []
+                boxes = []
+                confs = []
                 try:
                     # Inference
                     start_time = nepi_sdk.get_time()
 
-                    results = self.model(cv2_img, conf=threshold, verbose=False) #, device=self.device)
+                    results = self.model.predict(cv2_img, conf=threshold, verbose=False) #, device=self.device)
 
                     detect_time = round( (nepi_sdk.get_time() - start_time) , 3)
 
@@ -324,6 +349,11 @@ class Yolov8Detector():
                     # Update model settings
                     self.model.conf = threshold  # Confidence threshold (0-1)
 
+                    # Default to empty results so a failed inference returns no
+                    # detections instead of raising UnboundLocalError below
+                    ids = []
+                    boxes = []
+                    confs = []
                     try:
                         # Inference
                         start_time = nepi_sdk.get_time()
@@ -381,4 +411,4 @@ class Yolov8Detector():
 
 
 if __name__ == '__main__':
-    Yolov8Detector()
+    YoloDetector()

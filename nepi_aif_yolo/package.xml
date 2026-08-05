@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>nepi_aif_yolov11</name>
+  <name>nepi_aif_yolo</name>
   <version>0.0.0</version>
-  <description>Files for nepi yolov11 ai framework support</description>
+  <description>Files for nepi yolo ai framework support</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

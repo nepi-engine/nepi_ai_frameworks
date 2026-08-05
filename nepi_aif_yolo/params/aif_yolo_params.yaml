@@ -1,0 +1,13 @@
+description: Yolo ai framework support
+pkg_name: nepi_aif_yolo
+framework_name: yolo
+if_file_name: aif_yolo_if.py
+if_module_name: aif_yolo_if
+if_class_name: YoloAIF
+node_file_dict: 
+  detection: nepi_ai_yolo_detection_node.py
+models_folder_name: yolo
+plays_well: True
+supports_preload: True
+wait_for_load: False
+

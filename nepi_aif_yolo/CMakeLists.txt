@@ -7,7 +7,7 @@ This file is part of nepi-engine
 License: 3-clause BSD, see https://opensource.org/licenses/BSD-3-Clause
 ]]
 cmake_minimum_required(VERSION 3.5)
-project(nepi_aif_yolov8)
+project(nepi_aif_yolo)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -114,7 +114,7 @@ endif()
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   scripts/nepi_ai_yolov8_detection_node.py
+   scripts/nepi_ai_yolo_detection_node.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

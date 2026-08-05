@@ -18,6 +18,8 @@
 
 import os
 import os.path
+from pathlib import Path
+
 
 
 from nepi_sdk import nepi_sdk
@@ -29,27 +31,27 @@ from std_msgs.msg import Empty, Float32, Int32, String, Bool
 
 
 TEST_AI_DICT = {
-'description': 'Yolov8 ai framework support', 
-'pkg_name': 'nepi_aif_yolov8', 
-'if_file_name': 'aif_yolov8_if.py', 
+'description': 'Yolo ai framework support', 
+'pkg_name': 'nepi_aif_yolo', 
+'if_file_name': 'aif_yolo_if.py', 
 'if_path_name': '/opt/nepi/nepi_engine/share/nepi_aifs', 
-'if_module_name': 'aif_yolov8_if', 
-'if_class_name': 'Yolov8AIF', 
-'models_folder_name': 'yolov8', 
-'pkg_name': 'nepi_aif_yolov8',
-'node_file_name': 'nepi_ai_yolov8_detection_node.py',  
+'if_module_name': 'aif_yolo_if', 
+'if_class_name': 'YoloAIF', 
+'models_folder_name': 'yolo', 
+'pkg_name': 'nepi_aif_yolo',
+'node_file_name': 'nepi_ai_yolo_detection_node.py',  
 'active': True
 }
 
-TEST_LAUNCH_NAMESPACE = "/nepi/yolov8_test"
+TEST_LAUNCH_NAMESPACE = "/nepi/yolo_test"
 TEST_MGR_NAMESPACE = "/nepi/ai_detector_mgr"
 TEST_MODELS_LIB_PATH = "/mnt/nepi_storage/ai_models/"
 
 
-MODEL_FRAMEWORK="yolov8"
 
-class Yolov8AIF(object):
 
+class YoloAIF(object):
+    MODEL_FRAMEWORK="yolo"
     node_dict = dict()
 
     def __init__(self, aif_dict, launch_namespace, models_lib_path):
@@ -92,7 +94,20 @@ class Yolov8AIF(object):
                 supported = False
                 self.logger.log_warn("Framework failed check: " + check)
 
+        if supported == True:
+            check='onnxruntime'
+            if nepi_utils.check_module_available(check) == False:
+                supported = False
+                self.logger.log_warn("Framework failed check: " + check)
+
         return supported
+
+    def find_yolo_folders(self, base_path):
+        # Convert string path to a Path object
+        path = Path(base_path)
+        
+        # Recursively find all directories matching '*yolo*' (case-insensitive)
+        return [str(folder) for folder in path.rglob('*') if folder.is_dir() and 'yolo' in folder.name.lower()]
 
     #################
     # Model Functions
@@ -100,12 +115,16 @@ class Yolov8AIF(object):
 
     def getModelsDict(self):
         # Try to obtain the path to MODEL_FRAMEWORK models from the system_mgr
-        self.logger.log_warn("Looking for model files in folder: " + self.models_folder_path)
-        # Grab the list of all existing cfg files
-        models_dict = nepi_aifs.loadModelsDict(MODEL_FRAMEWORK, self.pkg_name, self.models_folder_path)
-        ##################
-        # Add custom entries to models_dict if needed here.
-        ##################
+        model_paths = self.find_yolo_folders(self.models_lib_path)
+        models_dict = dict()
+        for model_path in model_paths:
+            self.logger.log_warn("Looking for model files in folder: " + model_path)
+            # Grab the list of all existing cfg files
+            add_models_dict = nepi_aifs.loadModelsDict(self.MODEL_FRAMEWORK, self.pkg_name, model_path, strict_check = False)
+            models_dict.update(add_models_dict)
+            ##################
+            # Add custom entries to models_dict if needed here.
+            ##################
         self.logger.log_warn("Returning models dict" + str(models_dict.keys()))
         return models_dict
 
@@ -129,4 +148,4 @@ if __name__ == '_main_':
     while nepi_sdk.check_for_node(node_name):
         nepi_sdk.kill_node(node_name)
         nepi_sdk.sleep(2,10)
-    Yolov8AIF(TEST_AI_DICT,TEST_LAUNCH_NAMESPACE,TEST_MGR_NAMESPACE,TEST_MODELS_LIB_PATH)
+    YoloAIF(TEST_AI_DICT,TEST_LAUNCH_NAMESPACE,TEST_MGR_NAMESPACE,TEST_MODELS_LIB_PATH)
