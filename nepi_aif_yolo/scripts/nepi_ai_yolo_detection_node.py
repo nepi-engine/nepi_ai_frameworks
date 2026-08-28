@@ -35,13 +35,12 @@ from nepi_api.messages_if import MsgIF
 
 
 class YoloDetector():
-    default_config_dict = {'threshold': 0.3,'max_rate': 10}
 
     #######################
     ### Node Initialization
     DEFAULT_NODE_NAME = "yolo_detector" # Can be overwitten by luanch command
     MODEL_FRAMEWORK="yolo"
-
+    model_ready = False
     def __init__(self):
         ####  NODE Initialization ####
         nepi_sdk.init_node(name= self.DEFAULT_NODE_NAME)
@@ -109,9 +108,34 @@ class YoloDetector():
                 self.msg_if.pub_warn("Model not a valid type: " + model_type)
                 nepi_sdk.signal_shutdown("Model not a valid type")
                 return
+
+            self.msg_if.pub_warn("Launching Model Load Process")
+            nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
+
+
+            # Create API IF Class
+            self.ai_if = AiDetectorIF(
+                                namespace = self.node_namespace,
+                                model_name = self.node_name,
+                                framework = model_framework,
+                                description = model_description,
+                                proc_img_height = self.proc_img_height,
+                                proc_img_width = self.proc_img_width,
+                                classes_list = self.classes,
+                                processImageFunction = self.processImage,
+                                processFileFunction = self.processFile)
+
+            #########################################################
+            ## Initiation Complete
             
+   
 
+            # Spin forever (until object is detected)
+            nepi_sdk.spin()
+            #########################################################        
+              
 
+    def loadModelCb(self,timer):
 
             ##############################
             # Load Model
@@ -138,7 +162,6 @@ class YoloDetector():
                 if cuda_count > 0:
                     self.device = 'cuda'
 
-            ##################################################
             self.msg_if.pub_warn("Loading model: " + self.node_name)
             self.onnx_file_path = self.weight_file_path.replace('.pt','.onnx')
             self.msg_if.pub_warn("Looking for optimized onnx model: " + self.onnx_file_path)
@@ -155,13 +178,11 @@ class YoloDetector():
                 self.msg_if.pub_warn("Optimized engine model not found")
                 self.model = YOLO(self.weight_file_path)
                 self.msg_if.pub_warn("Using non optimized engine model " + str(os.path.basename(self.weight_file_path)))
-            ##############################  
-
 
             # Initialize Detector with Blank Img
             self.msg_if.pub_warn("Initializing detector with blank img")
             init_cv2_img=nepi_img.create_cv2_blank_img()
-            det_dict=self.processImage(init_cv2_img)
+            det_dict=self.processImage(init_cv2_img, wait_for_ready = False)
 
             # Run Tests
             # NUM_TESTS=10
@@ -175,34 +196,12 @@ class YoloDetector():
             # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
             # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
 
-            # Create API IF Class
-            self.msg_if.pub_info("Starting ai_if with default_config_dict: " + str(self.default_config_dict))
-            self.ai_if = AiDetectorIF(
-                                namespace = self.node_namespace,
-                                model_name = self.node_name,
-                                framework = model_framework,
-                                description = model_description,
-                                proc_img_height = self.proc_img_height,
-                                proc_img_width = self.proc_img_width,
-                                classes_list = self.classes,
-                                default_config_dict = self.default_config_dict,
-                                processImageFunction = self.processImage,
-                                processFileFunction = self.processFile)
-
-            #########################################################
-            ## Initiation Complete
-            
-   
-
-            # Spin forever (until object is detected)
-            nepi_sdk.spin()
-            #########################################################        
-              
+            self.model_ready = True
+            ##############################  
 
 
+    def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False, wait_for_ready = True):
 
-
-    def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
 
         img_dict['image_width'] = 1
         img_dict['image_height'] = 1 
@@ -212,7 +211,8 @@ class YoloDetector():
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        if cv2_img is not None:
+        model_ready = (self.model_ready == True or wait_for_ready == False)
+        if cv2_img is not None and model_ready == True:
 
                 cv2_img_shape = cv2_img.shape
                 cv2_img_width = cv2_img_shape[1]
@@ -306,18 +306,11 @@ class YoloDetector():
     
 
 
-
-    def processFile(self, img_file, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
-
-        img_dict['image_width'] = 1
-        img_dict['image_height'] = 1 
-        img_dict['prc_width'] = 1
-        img_dict['prc_height'] = 1 
-        img_dict['ratio'] = 1
-        img_dict['tiling'] = False
+    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False, wait_for_ready = True):
 
         detect_dict_list = []
-        if img_file is not None:
+        model_ready = (self.model_ready == True or wait_for_ready == False)
+        if img_file is not None and model_ready == True:
             if os.path.exists(img_file) == True:
                 try:
                     with Image.open(img_file) as img:
@@ -325,87 +318,14 @@ class YoloDetector():
                 except:
                     if verbose == True:
                         self.msg_if.pub_info("Failed to read meta data from image file: " + str(img_file))
-                    [width, height] = [None,None]
+                    [width, height] = [None, None]
 
                 if width is not None and height is not None:
-                    img_width = width
-                    img_height = height
-                    img_area = width * height
+                    cv2_img = cv2.imread(img_file)
+                    if cv2_img is not None:
+                        [detect_dict_list, img_dict] = self.processImage(
+                            cv2_img, img_dict=img_dict, threshold=threshold, resize=resize, verbose=verbose)
 
-                    rescale_ratio = 1
-                    prc_width = img_width
-                    prc_height = img_height
-
-                    #self.msg_if.pub_info(":yolov5: Preprocessed image with image size: " + str(img.shape))
-                    # Create image dict with new image
-                    img_dict['image_width'] = img_width 
-                    img_dict['image_height'] = img_height 
-                    img_dict['prc_width'] = prc_width 
-                    img_dict['prc_height'] = prc_height 
-                    img_dict['ratio'] = rescale_ratio 
-                    img_dict['tiling'] = False
-
-
-                    # Update model settings
-                    self.model.conf = threshold  # Confidence threshold (0-1)
-
-                    # Default to empty results so a failed inference returns no
-                    # detections instead of raising UnboundLocalError below
-                    ids = []
-                    boxes = []
-                    confs = []
-                    try:
-                        # Inference
-                        start_time = nepi_sdk.get_time()
-
-                        results = self.model.predict(img_file, conf=threshold, verbose=False) #, device=self.device)
-
-                        detect_time = round( (nepi_sdk.get_time() - start_time) , 3)
-
-
-                        ids = results[0].boxes.cls.to('cpu').tolist()
-                        boxes = results[0].boxes.xyxy.to('cpu').tolist()
-                        confs = results[0].boxes.conf.to('cpu').tolist()
-
-                        # self.msg_if.pub_warn("Got detection ids: " + str(ids))
-                        # self.msg_if.pub_warn("Got detection boxes: " + str(boxes))
-                        # self.msg_if.pub_warn("Got detection confs: " + str(confs))
-                    
-                    except Exception as e:
-                        self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
-                
-                    
-                    for i, idf in enumerate(ids):
-                        id = int(idf)
-                        det_name = self.classes[id]
-                        det_id = id
-                        det_prob = confs[i]
-                        det_box = boxes[i]
-                        det_area = (det_box[2] - det_box[0]) * (det_box[3] - det_box[1])
-                        detect_dict = {
-                            'name': det_name, # Class String Name
-                            'id': det_id, # Class Index from Classes List
-                            'uid': '', # Reserved for unique tracking by downstream applications
-                            'prob': det_prob, # Probability of detection
-                            'xmin': int(det_box[0] ),
-                            'ymin': int(det_box[1] ) ,
-                            'xmax': int(det_box[2] ),
-                            'ymax': int(det_box[3]),
-                            'area_pixels': int(det_area),
-                            'area_ratio': det_area / img_area
-                        }
-                        # Rescale to orig image size
-                        detect_dict['xmin'] = int(detect_dict['xmin'] * rescale_ratio)
-                        detect_dict['ymin'] = int(detect_dict['ymin'] * rescale_ratio)
-                        detect_dict['xmax'] = int(detect_dict['xmax'] * rescale_ratio)
-                        detect_dict['ymax'] = int(detect_dict['ymax'] * rescale_ratio)
-                        detect_dict_list.append(detect_dict)
-
-
-                        if verbose == True:
-                            self.msg_if.pub_info("Detector Detect Time: " + str(detect_time))
-                            self.msg_if.pub_info("Got detect dict entry: " + str(detect_dict))
-            
         return [detect_dict_list, img_dict]
 
 

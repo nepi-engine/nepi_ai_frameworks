@@ -48,13 +48,12 @@ from nepi_api.messages_if import MsgIF
 
 
 class HailoDetector():
-    default_config_dict = {'threshold': 0.3, 'max_rate': 5}
-
+    
     #######################
     ### Node Initialization
     DEFAULT_NODE_NAME = "ai_hailo"
     MODEL_FRAMEWORK = "hailo"
-
+    model_ready = False
     def __init__(self):
         ####  NODE Initialization ####
         nepi_sdk.init_node(name=self.DEFAULT_NODE_NAME)
@@ -122,63 +121,17 @@ class HailoDetector():
                 nepi_sdk.signal_shutdown("Model not a valid type")
                 return
 
-            ##############################
-            # Load Model
-
-            # self.msg_if.pub_warn("Importing hailo_platform package")
-            # from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
-
             if HEF is None:
                 "Failed to load hailo_platfrom module"
             else:
 
-                self.device = VDevice()
-                self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
-                self.hef = HEF(self.weight_file_path)      
-                # Configure the network group
-                self.configure_params = None
-                self.network_groups = None
-                self.network_group = None
-                self.network_group_params = None
-                try:
-                    self.configure_params = ConfigureParams.create_from_hef(self.hef, interface=HAILO_INTERFACE)
-                    self.network_group = self.device.configure(self.hef, self.configure_params)[0]
-                    self.network_group_params = self.network_group.create_params()
-                except Exception as e:
-                    print("Device config failed with error: " + str(e))
-                if self.configure_params is not None and self.network_group_params is not None:
-                    print("Got network config: " + str(self.network_group_params))
-                    # Get stream info for input/output naming
-                    self.input_vstream_info = self.hef.get_input_vstream_infos()[0]
-                    self.input_vstreams_params = InputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
-                    print("")
-                    print("self.input_vstream_info " + str(self.input_vstreams_params))
-                    
-                    self.output_vstreams_params = OutputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
-                    print("")
-                    print("self.output_vstreams_params " + str(self.output_vstreams_params))
-                    print("")
-                    # Build vstream params
+            
+                self.msg_if.pub_warn("Launching Model Load Process")
+                nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
 
-                # Initialize with blank image
-                self.msg_if.pub_warn("Initializing detector with blank img")
-                init_cv2_img = nepi_img.create_cv2_blank_img()
-                det_dict = self.processImage(init_cv2_img)
 
-                # Speed test
-                NUM_TESTS = 10
-                self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
-                start_time = time.time()
-                for i in range(1, NUM_TESTS):
-                    det_dict = self.processImage(init_cv2_img)
-                elapsed_time = round((time.time() - start_time), 4)
-                detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
-                detect_rate = round(float(1.0) / detect_time, 4)
-                self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-                self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
 
                 # Create API IF Class
-                self.msg_if.pub_info("Starting ai_if with default_config_dict: " + str(self.default_config_dict))
                 self.ai_if = AiDetectorIF(
                     namespace=self.node_namespace,
                     model_name=self.node_name,
@@ -187,24 +140,85 @@ class HailoDetector():
                     proc_img_height=self.proc_img_height,
                     proc_img_width=self.proc_img_width,
                     classes_list=self.classes,
-                    default_config_dict=self.default_config_dict,
                     processImageFunction=self.processImage,
                     processFileFunction=self.processFile)
 
                 nepi_sdk.spin()
 
 
-    def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=True, verbose=False):
+    def loadModelCb(self,timer):
 
-        img_dict['image_width'] = 0
-        img_dict['image_height'] = 0
-        img_dict['prc_width'] = 0
-        img_dict['prc_height'] = 0
+
+        ##############################
+        # Load Model
+
+        # self.msg_if.pub_warn("Importing hailo_platform package")
+        # from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
+
+
+        self.device = VDevice()
+        self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
+        self.hef = HEF(self.weight_file_path)      
+        # Configure the network group
+        self.configure_params = None
+        self.network_groups = None
+        self.network_group = None
+        self.network_group_params = None
+        try:
+            self.configure_params = ConfigureParams.create_from_hef(self.hef, interface=HAILO_INTERFACE)
+            self.network_group = self.device.configure(self.hef, self.configure_params)[0]
+            self.network_group_params = self.network_group.create_params()
+        except Exception as e:
+            print("Device config failed with error: " + str(e))
+        if self.configure_params is not None and self.network_group_params is not None:
+            print("Got network config: " + str(self.network_group_params))
+            # Get stream info for input/output naming
+            self.input_vstream_info = self.hef.get_input_vstream_infos()[0]
+            self.input_vstreams_params = InputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
+            print("")
+            print("self.input_vstream_info " + str(self.input_vstreams_params))
+            
+            self.output_vstreams_params = OutputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
+            print("")
+            print("self.output_vstreams_params " + str(self.output_vstreams_params))
+            print("")
+            # Build vstream params
+
+            # Initialize with blank image
+            self.msg_if.pub_warn("Initializing detector with blank img")
+            init_cv2_img = nepi_img.create_cv2_blank_img()
+            det_dict = self.processImage(init_cv2_img)
+
+            # # Speed test
+            # NUM_TESTS = 10
+            # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+            # start_time = time.time()
+            # for i in range(1, NUM_TESTS):
+            #     det_dict = self.processImage(init_cv2_img)
+            # elapsed_time = round((time.time() - start_time), 4)
+            # detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
+            # detect_rate = round(float(1.0) / detect_time, 4)
+            # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+            # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+
+            self.model_ready = True
+            ##############################  
+
+
+
+    def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=True, verbose=False, wait_for_ready = True):
+
+
+        img_dict['image_width'] = 1
+        img_dict['image_height'] = 1 
+        img_dict['prc_width'] = 1
+        img_dict['prc_height'] = 1 
         img_dict['ratio'] = 1
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        if cv2_img is not None:
+        model_ready = (self.model_ready == True or wait_for_ready == False)
+        if cv2_img is not None and model_ready == True:
 
             if nepi_img.is_gray(cv2_img):
                 img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_GRAY2RGB)
@@ -303,17 +317,11 @@ class HailoDetector():
         return [detect_dict_list, img_dict]
 
 
-    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
-
-        img_dict['image_width'] = 1
-        img_dict['image_height'] = 1
-        img_dict['prc_width'] = 1
-        img_dict['prc_height'] = 1
-        img_dict['ratio'] = 1
-        img_dict['tiling'] = False
+    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False, wait_for_ready = True):
 
         detect_dict_list = []
-        if img_file is not None:
+        model_ready = (self.model_ready == True or wait_for_ready == False)
+        if img_file is not None and model_ready == True:
             if os.path.exists(img_file) == True:
                 try:
                     with Image.open(img_file) as img:
