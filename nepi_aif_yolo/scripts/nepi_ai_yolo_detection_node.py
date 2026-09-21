@@ -183,7 +183,8 @@ class YoloDetector():
             self.msg_if.pub_warn("Initializing detector with blank img")
             init_cv2_img=nepi_img.create_cv2_blank_img()
             det_dict=self.processImage(init_cv2_img, wait_for_ready = False)
-
+            self.model_ready = True
+            self.msg_if.pub_warn("DETECTOR READY")
             # Run Tests
             # NUM_TESTS=10
             # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
@@ -196,7 +197,7 @@ class YoloDetector():
             # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
             # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
 
-            self.model_ready = True
+            
             ##############################  
 
 
