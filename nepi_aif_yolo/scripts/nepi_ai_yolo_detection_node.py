@@ -110,32 +110,7 @@ class YoloDetector():
                 return
 
             self.msg_if.pub_warn("Launching Model Load Process")
-            nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
-
-
-            # Create API IF Class
-            self.ai_if = AiDetectorIF(
-                                namespace = self.node_namespace,
-                                model_name = self.node_name,
-                                framework = model_framework,
-                                description = model_description,
-                                proc_img_height = self.proc_img_height,
-                                proc_img_width = self.proc_img_width,
-                                classes_list = self.classes,
-                                processImageFunction = self.processImage,
-                                processFileFunction = self.processFile)
-
-            #########################################################
-            ## Initiation Complete
-            
-   
-
-            # Spin forever (until object is detected)
-            nepi_sdk.spin()
-            #########################################################        
-              
-
-    def loadModelCb(self,timer):
+            # nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
 
             ##############################
             # Load Model
@@ -199,6 +174,30 @@ class YoloDetector():
 
             
             ##############################  
+
+
+
+            # Create API IF Class
+            self.ai_if = AiDetectorIF(
+                                namespace = self.node_namespace,
+                                model_name = self.node_name,
+                                framework = model_framework,
+                                description = model_description,
+                                proc_img_height = self.proc_img_height,
+                                proc_img_width = self.proc_img_width,
+                                classes_list = self.classes,
+                                processImageFunction = self.processImage,
+                                processFileFunction = self.processFile)
+
+            #########################################################
+            ## Initiation Complete
+            
+   
+
+            # Spin forever (until object is detected)
+            nepi_sdk.spin()
+            #########################################################        
+              
 
 
     def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False, wait_for_ready = True):

@@ -127,7 +127,63 @@ class HailoDetector():
 
             
                 self.msg_if.pub_warn("Launching Model Load Process")
-                nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
+
+
+                ##############################
+                # Load Model
+
+                # self.msg_if.pub_warn("Importing hailo_platform package")
+                # from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
+
+
+                self.device = VDevice()
+                self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
+                self.hef = HEF(self.weight_file_path)      
+                # Configure the network group
+                self.configure_params = None
+                self.network_groups = None
+                self.network_group = None
+                self.network_group_params = None
+                try:
+                    self.configure_params = ConfigureParams.create_from_hef(self.hef, interface=HAILO_INTERFACE)
+                    self.network_group = self.device.configure(self.hef, self.configure_params)[0]
+                    self.network_group_params = self.network_group.create_params()
+                except Exception as e:
+                    print("Device config failed with error: " + str(e))
+                if self.configure_params is not None and self.network_group_params is not None:
+                    print("Got network config: " + str(self.network_group_params))
+                    # Get stream info for input/output naming
+                    self.input_vstream_info = self.hef.get_input_vstream_infos()[0]
+                    self.input_vstreams_params = InputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
+                    print("")
+                    print("self.input_vstream_info " + str(self.input_vstreams_params))
+                    
+                    self.output_vstreams_params = OutputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
+                    print("")
+                    print("self.output_vstreams_params " + str(self.output_vstreams_params))
+                    print("")
+                    # Build vstream params
+
+                    # Initialize with blank image
+                    self.msg_if.pub_warn("Initializing detector with blank img")
+                    init_cv2_img = nepi_img.create_cv2_blank_img()
+                    det_dict = self.processImage(init_cv2_img)
+
+                    # # Speed test
+                    # NUM_TESTS = 10
+                    # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+                    # start_time = time.time()
+                    # for i in range(1, NUM_TESTS):
+                    #     det_dict = self.processImage(init_cv2_img)
+                    # elapsed_time = round((time.time() - start_time), 4)
+                    # detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
+                    # detect_rate = round(float(1.0) / detect_time, 4)
+                    # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+                    # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+
+                    self.model_ready = True
+                    ##############################  
+
 
 
 
@@ -146,63 +202,6 @@ class HailoDetector():
                 nepi_sdk.spin()
 
 
-    def loadModelCb(self,timer):
-
-
-        ##############################
-        # Load Model
-
-        # self.msg_if.pub_warn("Importing hailo_platform package")
-        # from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
-
-
-        self.device = VDevice()
-        self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
-        self.hef = HEF(self.weight_file_path)      
-        # Configure the network group
-        self.configure_params = None
-        self.network_groups = None
-        self.network_group = None
-        self.network_group_params = None
-        try:
-            self.configure_params = ConfigureParams.create_from_hef(self.hef, interface=HAILO_INTERFACE)
-            self.network_group = self.device.configure(self.hef, self.configure_params)[0]
-            self.network_group_params = self.network_group.create_params()
-        except Exception as e:
-            print("Device config failed with error: " + str(e))
-        if self.configure_params is not None and self.network_group_params is not None:
-            print("Got network config: " + str(self.network_group_params))
-            # Get stream info for input/output naming
-            self.input_vstream_info = self.hef.get_input_vstream_infos()[0]
-            self.input_vstreams_params = InputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.UINT8)
-            print("")
-            print("self.input_vstream_info " + str(self.input_vstreams_params))
-            
-            self.output_vstreams_params = OutputVStreamParams.make_from_network_group(self.network_group, quantized=False, format_type=FormatType.FLOAT32)
-            print("")
-            print("self.output_vstreams_params " + str(self.output_vstreams_params))
-            print("")
-            # Build vstream params
-
-            # Initialize with blank image
-            self.msg_if.pub_warn("Initializing detector with blank img")
-            init_cv2_img = nepi_img.create_cv2_blank_img()
-            det_dict = self.processImage(init_cv2_img)
-
-            # # Speed test
-            # NUM_TESTS = 10
-            # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
-            # start_time = time.time()
-            # for i in range(1, NUM_TESTS):
-            #     det_dict = self.processImage(init_cv2_img)
-            # elapsed_time = round((time.time() - start_time), 4)
-            # detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
-            # detect_rate = round(float(1.0) / detect_time, 4)
-            # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-            # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
-
-            self.model_ready = True
-            ##############################  
 
 
 
