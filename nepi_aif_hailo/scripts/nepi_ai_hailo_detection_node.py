@@ -54,6 +54,7 @@ class HailoDetector():
     DEFAULT_NODE_NAME = "ai_hailo"
     MODEL_FRAMEWORK = "hailo"
     model_ready = False
+    model_busy = False
     def __init__(self):
         ####  NODE Initialization ####
         nepi_sdk.init_node(name=self.DEFAULT_NODE_NAME)
@@ -217,6 +218,8 @@ class HailoDetector():
     def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=True, verbose=False):
 
 
+
+
         img_dict['image_width'] = 1
         img_dict['image_height'] = 1 
         img_dict['prc_width'] = 1
@@ -225,8 +228,10 @@ class HailoDetector():
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        if cv2_img is not None:
-
+        if cv2_img is None or self.model_busy == True:
+            return detect_dict_list
+        else:
+            self.model_busy = True
             if nepi_img.is_gray(cv2_img):
                 img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_GRAY2RGB)
             else:
@@ -321,6 +326,7 @@ class HailoDetector():
                             self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
         # if len(detect_dict_list) > 0:
         #     print(detect_dict_list[0])
+        self.model_busy = False
         return [detect_dict_list, img_dict]
 
 

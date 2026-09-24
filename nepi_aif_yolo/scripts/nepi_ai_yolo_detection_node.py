@@ -41,6 +41,7 @@ class YoloDetector():
     DEFAULT_NODE_NAME = "yolo_detector" # Can be overwitten by luanch command
     MODEL_FRAMEWORK="yolo"
     model_ready = False
+    model_busy = False
     def __init__(self):
         ####  NODE Initialization ####
         nepi_sdk.init_node(name= self.DEFAULT_NODE_NAME)
@@ -220,8 +221,10 @@ class YoloDetector():
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        if cv2_img is not None:
-
+        if cv2_img is None or self.model_busy == True:
+            return detect_dict_list
+        else:
+                self.model_busy = True
                 cv2_img_shape = cv2_img.shape
                 cv2_img_width = cv2_img_shape[1]
                 cv2_img_height = cv2_img_shape[0]
@@ -309,7 +312,7 @@ class YoloDetector():
                     if verbose == True:
                         self.msg_if.pub_info("Detector Detect Time: " + str(detect_time))
                         self.msg_if.pub_info("Got detect dict entry: " + str(detect_dict))
-            
+        self.model_busy = False
         return [detect_dict_list, img_dict]
     
 
