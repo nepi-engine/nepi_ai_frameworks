@@ -315,7 +315,7 @@ class YoloDetector():
 
 
     def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
-        self.msg_if.pub_info("Got image file: " + str(img_file))
+        #self.msg_if.pub_info("Got image file: " + str(img_file))
         detect_dict_list = []
         if img_file is not None:
             if os.path.exists(img_file) == True:
@@ -334,10 +334,10 @@ class YoloDetector():
                     if cv2_img is None:
                         self.msg_if.pub_info("Failed to read data from image file: " + str(img_file))
                     else:
-                        self.msg_if.pub_info("Processing image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
+                        #self.msg_if.pub_info("Processing image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
                         [detect_dict_list, img_dict] = self.processImage(
                             cv2_img, img_dict=img_dict, threshold=threshold, resize=resize, verbose=verbose)
-        self.msg_if.pub_info("Got detections from image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
+        #self.msg_if.pub_info("Got detections from image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
         return [detect_dict_list, img_dict]
 
 
