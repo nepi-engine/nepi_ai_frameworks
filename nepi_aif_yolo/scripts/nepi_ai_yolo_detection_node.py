@@ -222,7 +222,7 @@ class YoloDetector():
 
         detect_dict_list = []
         if cv2_img is None or self.model_busy == True:
-            return detect_dict_list
+            return None
         else:
                 self.model_busy = True
                 cv2_img_shape = cv2_img.shape
@@ -340,7 +340,6 @@ class YoloDetector():
                         #self.msg_if.pub_info("Processing image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
                         [detect_dict_list, img_dict] = self.processImage(
                             cv2_img, img_dict=img_dict, threshold=threshold, resize=resize, verbose=verbose)
-        #self.msg_if.pub_info("Got detections from image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
         return [detect_dict_list, img_dict]
 
 

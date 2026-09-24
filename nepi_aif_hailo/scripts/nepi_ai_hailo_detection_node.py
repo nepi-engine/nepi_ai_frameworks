@@ -229,7 +229,7 @@ class HailoDetector():
 
         detect_dict_list = []
         if cv2_img is None or self.model_busy == True:
-            return detect_dict_list
+            return None
         else:
             self.model_busy = True
             if nepi_img.is_gray(cv2_img):
