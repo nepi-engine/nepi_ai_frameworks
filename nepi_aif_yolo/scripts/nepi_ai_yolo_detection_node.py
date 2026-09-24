@@ -155,24 +155,33 @@ class YoloDetector():
                 self.msg_if.pub_warn("Using non optimized engine model " + str(os.path.basename(self.weight_file_path)))
 
             # Initialize Detector with Blank Img
-            self.msg_if.pub_warn("Initializing detector with blank img")
-            init_cv2_img=nepi_img.create_cv2_blank_img()
-            det_dict=self.processImage(init_cv2_img, wait_for_ready = False)
-            self.model_ready = True
-            self.msg_if.pub_warn("DETECTOR READY")
-            # Run Tests
-            # NUM_TESTS=10
-            # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
-            # start_time = time.time()
-            # for i in range(1, NUM_TESTS):
-            #     det_dict=self.processImage(init_cv2_img)
-            # elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
-            # detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
-            # detect_rate = round( float(1.0)/detect_time , 4)
-            # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-            # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
-
             
+            self.msg_if.pub_warn("Initializing detector with img")
+            start_time = time.time()
+            init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
+            det_dict=self.processImage(init_cv2_img)
+            if det_dict is None:
+                self.msg_if.pub_warn("Failed to Get Data From Model Init")
+                nepi_sdk.signal_shutdown("Failed to Get Data From Model Init")
+                return           
+            init_time = nepi_utils.get_time() - start_time
+            self.msg_if.pub_warn("Init Model Time: " + str(init_time) + " sec")
+                 
+            # #Run Tests
+            NUM_TESTS=10
+            self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+            start_time = time.time()
+            for i in range(1, NUM_TESTS):
+                init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
+                det_dict=self.processImage(init_cv2_img)
+            elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
+            detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
+            detect_rate = round( float(1.0)/detect_time , 4)
+            self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+            self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+
+            self.model_ready = True
+            self.msg_if.pub_warn("DETECTOR READY")            
             ##############################  
 
 
@@ -200,7 +209,7 @@ class YoloDetector():
               
 
 
-    def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False, wait_for_ready = True):
+    def processImage(self, cv2_img, img_dict=dict(), threshold = 0.3, resize = False, verbose = False):
 
 
         img_dict['image_width'] = 1
@@ -211,8 +220,7 @@ class YoloDetector():
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        model_ready = (self.model_ready == True or wait_for_ready == False)
-        if cv2_img is not None and model_ready == True:
+        if cv2_img is not None:
 
                 cv2_img_shape = cv2_img.shape
                 cv2_img_width = cv2_img_shape[1]
@@ -306,11 +314,10 @@ class YoloDetector():
     
 
 
-    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False, wait_for_ready = True):
-
+    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
+        self.msg_if.pub_info("Got image file: " + str(img_file))
         detect_dict_list = []
-        model_ready = (self.model_ready == True or wait_for_ready == False)
-        if img_file is not None and model_ready == True:
+        if img_file is not None:
             if os.path.exists(img_file) == True:
                 try:
                     with Image.open(img_file) as img:
@@ -320,12 +327,17 @@ class YoloDetector():
                         self.msg_if.pub_info("Failed to read meta data from image file: " + str(img_file))
                     [width, height] = [None, None]
 
-                if width is not None and height is not None:
+                if width is None or height is None:
+                    self.msg_if.pub_info("Failed to read meta data from image file: " + str(img_file))
+                else:
                     cv2_img = cv2.imread(img_file)
-                    if cv2_img is not None:
+                    if cv2_img is None:
+                        self.msg_if.pub_info("Failed to read data from image file: " + str(img_file))
+                    else:
+                        self.msg_if.pub_info("Processing image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
                         [detect_dict_list, img_dict] = self.processImage(
                             cv2_img, img_dict=img_dict, threshold=threshold, resize=resize, verbose=verbose)
-
+        self.msg_if.pub_info("Got detections from image file: " + str(img_file) + " LENGTH: " + str(len(detect_dict_list)))
         return [detect_dict_list, img_dict]
 
 

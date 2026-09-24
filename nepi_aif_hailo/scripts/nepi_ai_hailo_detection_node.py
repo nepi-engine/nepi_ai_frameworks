@@ -123,6 +123,7 @@ class HailoDetector():
 
             if HEF is None:
                 "Failed to load hailo_platfrom module"
+                return
             else:
 
             
@@ -150,6 +151,7 @@ class HailoDetector():
                     self.network_group_params = self.network_group.create_params()
                 except Exception as e:
                     print("Device config failed with error: " + str(e))
+                    return
                 if self.configure_params is not None and self.network_group_params is not None:
                     print("Got network config: " + str(self.network_group_params))
                     # Get stream info for input/output naming
@@ -165,21 +167,28 @@ class HailoDetector():
                     # Build vstream params
 
                     # Initialize with blank image
-                    self.msg_if.pub_warn("Initializing detector with blank img")
-                    init_cv2_img = nepi_img.create_cv2_blank_img()
+                    self.msg_if.pub_warn("Initializing detector with img")
+                    start_time = time.time()
+                    init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
                     det_dict = self.processImage(init_cv2_img)
-
-                    # # Speed test
-                    # NUM_TESTS = 10
-                    # self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
-                    # start_time = time.time()
-                    # for i in range(1, NUM_TESTS):
-                    #     det_dict = self.processImage(init_cv2_img)
-                    # elapsed_time = round((time.time() - start_time), 4)
-                    # detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
-                    # detect_rate = round(float(1.0) / detect_time, 4)
-                    # self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-                    # self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+                    if det_dict is None:
+                        self.msg_if.pub_warn("Failed to Get Data From Model Init")
+                        nepi_sdk.signal_shutdown("Failed to Get Data From Model Init")
+                        return     
+                    init_time = nepi_utils.get_time() - start_time
+                    self.msg_if.pub_warn("Init Model Time: " + str(init_time) + " sec")
+                    # Speed test
+                    NUM_TESTS = 10
+                    self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+                    start_time = time.time()
+                    for i in range(1, NUM_TESTS):
+                        init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
+                        det_dict = self.processImage(init_cv2_img)
+                    elapsed_time = round((time.time() - start_time), 4)
+                    detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
+                    detect_rate = round(float(1.0) / detect_time, 4)
+                    self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
+                    self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
 
                     self.model_ready = True
                     ##############################  
@@ -205,7 +214,7 @@ class HailoDetector():
 
 
 
-    def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=True, verbose=False, wait_for_ready = True):
+    def processImage(self, cv2_img, img_dict=dict(), threshold=0.3, resize=True, verbose=False):
 
 
         img_dict['image_width'] = 1
@@ -216,8 +225,7 @@ class HailoDetector():
         img_dict['tiling'] = False
 
         detect_dict_list = []
-        model_ready = (self.model_ready == True or wait_for_ready == False)
-        if cv2_img is not None and model_ready == True:
+        if cv2_img is not None:
 
             if nepi_img.is_gray(cv2_img):
                 img_rgb = cv2.cvtColor(cv2_img, cv2.COLOR_GRAY2RGB)
@@ -316,11 +324,10 @@ class HailoDetector():
         return [detect_dict_list, img_dict]
 
 
-    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False, wait_for_ready = True):
+    def processFile(self, img_file, img_dict=dict(), threshold=0.3, resize=False, verbose=False):
 
         detect_dict_list = []
-        model_ready = (self.model_ready == True or wait_for_ready == False)
-        if img_file is not None and model_ready == True:
+        if img_file is not None:
             if os.path.exists(img_file) == True:
                 try:
                     with Image.open(img_file) as img:
