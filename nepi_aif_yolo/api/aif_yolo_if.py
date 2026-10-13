@@ -56,7 +56,6 @@ class YoloAIF(object):
 
     def __init__(self, aif_dict, launch_namespace, models_lib_path):
       self.pkg_name = aif_dict['pkg_name']
-      self.log_name = self.pkg_name
       self.logger = Logger() 
       self.logger.log_warn("Instantiating with aif_dict: " +str(aif_dict))
 
