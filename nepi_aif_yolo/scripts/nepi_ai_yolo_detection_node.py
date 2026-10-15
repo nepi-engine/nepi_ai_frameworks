@@ -63,7 +63,7 @@ class YoloDetector():
         ############  Get WEIGHT_FILE Path
         param_namespace = nepi_sdk.create_namespace(self.node_namespace,'weight_file_path')
         self.weight_file_path = str(nepi_sdk.get_param(param_namespace,""))
-        self.msg_if.pub_warn("Got weight file path: " + self.weight_file_path)
+        self.msg_if.pub_info("Got weight file path: " + self.weight_file_path)
         if self.weight_file_path == "" or os.path.exists(self.weight_file_path) == False:
             self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
             nepi_sdk.signal_shutdown("Failed to get valid weight path, got: " + self.weight_file_path)
@@ -72,7 +72,7 @@ class YoloDetector():
         ############  Get PARAMS_FILE Path
         param_namespace = nepi_sdk.create_namespace(self.node_namespace,'param_file_path')
         self.param_file_path = str(nepi_sdk.get_param(param_namespace,""))
-        self.msg_if.pub_warn("Got param file path: " + self.param_file_path)
+        self.msg_if.pub_debug("Got param file path: " + self.param_file_path)
         if self.param_file_path == "" or os.path.exists(self.param_file_path) == False:
             self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
             nepi_sdk.signal_shutdown("Failed to get valid param path, got: " + self.param_file_path)
@@ -81,7 +81,7 @@ class YoloDetector():
         ############### Load Model Params
         yaml_dict = nepi_utils.read_dict_from_file(self.param_file_path)
         
-        self.msg_if.pub_warn("Got model info: " + str(yaml_dict))
+        self.msg_if.pub_debug("Got model info: " + str(yaml_dict))
 
         if yaml_dict is None:
             self.msg_if.pub_warn("Failed load model info dict from: " + str(self.param_file_path))
@@ -110,7 +110,7 @@ class YoloDetector():
                 nepi_sdk.signal_shutdown("Model not a valid type")
                 return
 
-            self.msg_if.pub_warn("Launching Model Load Process")
+            self.msg_if.pub_info("Launching Model Load Process")
             # nepi_sdk.start_timer_process((1.0), self.loadModelCb, oneshot = True)
 
             ##############################
@@ -125,39 +125,39 @@ class YoloDetector():
             os.environ["YOLO_OFFLINE"] = "true"
 
             # Import ultralytics here so we can message
-            self.msg_if.pub_warn("Importing ultralytics YOLO package")
+            self.msg_if.pub_info("Importing ultralytics YOLO package")
             from ultralytics import YOLO
 
 
             self.device = 'cpu'
             has_cuda = torch.cuda.is_available()
-            self.msg_if.pub_warn("CUDA available: " + str(has_cuda))
+            self.msg_if.pub_info("CUDA available: " + str(has_cuda))
             if has_cuda == True:
                 cuda_count = torch.cuda.device_count()
-                self.msg_if.pub_warn("CUDA GPU Count: " + str(cuda_count))
+                self.msg_if.pub_info("CUDA GPU Count: " + str(cuda_count))
                 if cuda_count > 0:
                     self.device = 'cuda'
 
-            self.msg_if.pub_warn("Loading model: " + self.node_name)
+            self.msg_if.pub_info("Loading model: " + self.node_name)
             self.onnx_file_path = self.weight_file_path.replace('.pt','.onnx')
-            self.msg_if.pub_warn("Looking for optimized onnx model: " + self.onnx_file_path)
+            self.msg_if.pub_info("Looking for optimized onnx model: " + self.onnx_file_path)
             if os.path.exists(self.onnx_file_path) == False:
-                self.msg_if.pub_warn("Creating for optimized onnx model: " + self.onnx_file_path)
+                self.msg_if.pub_info("Creating for optimized onnx model: " + self.onnx_file_path)
                 model = YOLO(self.weight_file_path)
                 # Export the model specifying half precision and dynamic axes
                 model.export(format='engine', half=True, dynamic=True)
             if os.path.exists(self.onnx_file_path) == True:
-                self.msg_if.pub_warn("Found optimized onnx model " + str(os.path.basename(self.onnx_file_path)))
+                self.msg_if.pub_info("Found optimized onnx model " + str(os.path.basename(self.onnx_file_path)))
                 self.model = YOLO(self.onnx_file_path)
-                self.msg_if.pub_warn("Loaded optimized engine model")
+                self.msg_if.pub_info("Loaded optimized engine model")
             else:
-                self.msg_if.pub_warn("Optimized engine model not found")
+                self.msg_if.pub_info("Optimized engine model not found")
                 self.model = YOLO(self.weight_file_path)
-                self.msg_if.pub_warn("Using non optimized engine model " + str(os.path.basename(self.weight_file_path)))
+                self.msg_if.pub_info("Using non optimized engine model " + str(os.path.basename(self.weight_file_path)))
 
             # Initialize Detector with Blank Img
             
-            self.msg_if.pub_warn("Initializing detector with img")
+            self.msg_if.pub_info("Initializing detector with img")
             start_time = time.time()
             init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
             det_dict=self.processImage(init_cv2_img)
@@ -166,11 +166,11 @@ class YoloDetector():
                 nepi_sdk.signal_shutdown("Failed to Get Data From Model Init")
                 return           
             init_time = nepi_utils.get_time() - start_time
-            self.msg_if.pub_warn("Init Model Time: " + str(init_time) + " sec")
+            self.msg_if.pub_info("Init Model Time: " + str(init_time) + " sec")
                  
             # #Run Tests
             NUM_TESTS=10
-            self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+            self.msg_if.pub_info("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
             start_time = time.time()
             for i in range(1, NUM_TESTS):
                 init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
@@ -178,11 +178,11 @@ class YoloDetector():
             elapsed_time = round( ( time.time() - start_time ) , 4)  # Slower for real images
             detect_time = round( elapsed_time / NUM_TESTS , 4) + 0.0001
             detect_rate = round( float(1.0)/detect_time , 4)
-            self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-            self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+            self.msg_if.pub_info("Average Detection Time: " + str(detect_time) + " sec")
+            self.msg_if.pub_info("Average Detection Rate: " + str(detect_rate) + " hz")
 
             self.model_ready = True
-            self.msg_if.pub_warn("DETECTOR READY")            
+            self.msg_if.pub_info("DETECTOR READY")            
             ##############################  
 
 
@@ -274,12 +274,12 @@ class YoloDetector():
                     boxes = results[0].boxes.xyxy.to('cpu').tolist()
                     confs = results[0].boxes.conf.to('cpu').tolist()
 
-                    # self.msg_if.pub_warn("Got detection ids: " + str(ids))
-                    # self.msg_if.pub_warn("Got detection boxes: " + str(boxes))
-                    # self.msg_if.pub_warn("Got detection confs: " + str(confs))
+                    # self.msg_if.pub_debug("Got detection ids: " + str(ids))
+                    # self.msg_if.pub_debug("Got detection boxes: " + str(boxes))
+                    # self.msg_if.pub_debug("Got detection confs: " + str(confs))
                 
                 except Exception as e:
-                    self.msg_if.pub_info("Failed to process detection with exception: " + str(e))
+                    self.msg_if.pub_warn("Failed to process detection with exception: " + str(e))
             
                 
                 for i, idf in enumerate(ids):

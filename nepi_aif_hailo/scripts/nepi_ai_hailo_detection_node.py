@@ -74,7 +74,7 @@ class HailoDetector():
         ############  Get WEIGHT_FILE Path
         param_namespace = nepi_sdk.create_namespace(self.node_namespace, 'weight_file_path')
         self.weight_file_path = str(nepi_sdk.get_param(param_namespace, ""))
-        self.msg_if.pub_warn("Got weight file path: " + self.weight_file_path)
+        self.msg_if.pub_debug("Got weight file path: " + self.weight_file_path)
         if self.weight_file_path == "" or os.path.exists(self.weight_file_path) == False:
             self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
             nepi_sdk.signal_shutdown("Failed to get valid weight path, got: " + self.weight_file_path)
@@ -83,7 +83,7 @@ class HailoDetector():
         ############  Get PARAMS_FILE Path
         param_namespace = nepi_sdk.create_namespace(self.node_namespace, 'param_file_path')
         self.param_file_path = str(nepi_sdk.get_param(param_namespace, ""))
-        self.msg_if.pub_warn("Got param file path: " + self.param_file_path)
+        self.msg_if.pub_debug("Got param file path: " + self.param_file_path)
         if self.param_file_path == "" or os.path.exists(self.param_file_path) == False:
             self.msg_if.pub_warn("Failed to get required node info from param server at: " + str(param_namespace))
             nepi_sdk.signal_shutdown("Failed to get valid param path, got: " + self.param_file_path)
@@ -92,7 +92,7 @@ class HailoDetector():
         ############### Load Model Params
         yaml_dict = nepi_utils.read_dict_from_file(self.param_file_path)
 
-        self.msg_if.pub_warn("Got model info: " + str(yaml_dict))
+        self.msg_if.pub_debug("Got model info: " + str(yaml_dict))
 
         if yaml_dict is None:
             self.msg_if.pub_warn("Failed load model info dict from: " + str(self.param_file_path))
@@ -128,18 +128,18 @@ class HailoDetector():
             else:
 
             
-                self.msg_if.pub_warn("Launching Model Load Process")
+                self.msg_if.pub_info("Launching Model Load Process")
 
 
                 ##############################
                 # Load Model
 
-                # self.msg_if.pub_warn("Importing hailo_platform package")
+                # self.msg_if.pub_debug("Importing hailo_platform package")
                 # from hailo_platform import HEF, VDevice, HailoStreamInterface, InferVStreams, ConfigureParams, InputVStreamParams, OutputVStreamParams, FormatType
 
 
                 self.device = VDevice()
-                self.msg_if.pub_warn("Loading HEF model: " + self.weight_file_path)
+                self.msg_if.pub_info("Loading HEF model: " + self.weight_file_path)
                 self.hef = HEF(self.weight_file_path)      
                 # Configure the network group
                 self.configure_params = None
@@ -168,7 +168,7 @@ class HailoDetector():
                     # Build vstream params
 
                     # Initialize with blank image
-                    self.msg_if.pub_warn("Initializing detector with img")
+                    self.msg_if.pub_info("Initializing detector with img")
                     start_time = time.time()
                     init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
                     det_dict = self.processImage(init_cv2_img)
@@ -177,10 +177,10 @@ class HailoDetector():
                         nepi_sdk.signal_shutdown("Failed to Get Data From Model Init")
                         return     
                     init_time = nepi_utils.get_time() - start_time
-                    self.msg_if.pub_warn("Init Model Time: " + str(init_time) + " sec")
+                    self.msg_if.pub_info("Init Model Time: " + str(init_time) + " sec")
                     # Speed test
                     NUM_TESTS = 10
-                    self.msg_if.pub_warn("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
+                    self.msg_if.pub_info("Running Detection Speed Test on " + str(NUM_TESTS) + " Images")
                     start_time = time.time()
                     for i in range(1, NUM_TESTS):
                         init_cv2_img = np.random.randint(0, 256, (640, 640, 3), dtype=np.uint8)
@@ -188,8 +188,8 @@ class HailoDetector():
                     elapsed_time = round((time.time() - start_time), 4)
                     detect_time = round(elapsed_time / NUM_TESTS, 4) + 0.0001
                     detect_rate = round(float(1.0) / detect_time, 4)
-                    self.msg_if.pub_warn("Average Detection Time: " + str(detect_time) + " sec")
-                    self.msg_if.pub_warn("Average Detection Rate: " + str(detect_rate) + " hz")
+                    self.msg_if.pub_info("Average Detection Time: " + str(detect_time) + " sec")
+                    self.msg_if.pub_info("Average Detection Rate: " + str(detect_rate) + " hz")
 
                     self.model_ready = True
                     ##############################  

@@ -57,12 +57,12 @@ class YoloAIF(object):
     def __init__(self, aif_dict, launch_namespace, models_lib_path):
       self.pkg_name = aif_dict['pkg_name']
       self.logger = Logger() 
-      self.logger.log_warn("Instantiating with aif_dict: " +str(aif_dict))
+      self.logger.lob_debug("Instantiating with aif_dict: " +str(aif_dict))
 
       if launch_namespace[-1] == "/":
         launch_namespace = launch_namespace[:-1]
       self.launch_namespace = launch_namespace  
-      #self.logger.log_warn("Launch Namespace: " + self.launch_namespace)
+      #self.logger.lob_debug("Launch Namespace: " + self.launch_namespace)
       self.models_lib_path = models_lib_path
 
       self.node_file_dict = aif_dict['node_file_dict']
@@ -117,19 +117,19 @@ class YoloAIF(object):
         model_paths = self.find_yolo_folders(self.models_lib_path)
         models_dict = dict()
         for model_path in model_paths:
-            self.logger.log_warn("Looking for model files in folder: " + model_path)
+            self.logger.pub_info("Looking for model files in folder: " + model_path)
             # Grab the list of all existing cfg files
             add_models_dict = nepi_aifs.loadModelsDict(self.MODEL_FRAMEWORK, self.pkg_name, model_path, strict_check = False)
             models_dict.update(add_models_dict)
             ##################
             # Add custom entries to models_dict if needed here.
             ##################
-        self.logger.log_warn("Returning models dict" + str(models_dict.keys()))
+        self.logger.lob_debug("Returning models dict" + str(models_dict.keys()))
         return models_dict
 
 
     def launchModel(self, model_dict):
-        self.logger.log_warn("Launching Model Node with model dict" + str(model_dict))
+        self.logger.log_info("Launching Model Node" + str(model_dict['node_name']))
         [success, node_namespace, self.node_dict] = nepi_aifs.launchModelNode( model_dict, self.node_file_dict, self.launch_namespace, self.node_dict)
         return success, node_namespace
 
