@@ -99,10 +99,10 @@ class HailoAIF(object):
         WEIGHTS_FOLDER = None
         hailo_hw_version = str(nepi_utils.bash_nepi_get('get_hailo_hw_version')).replace(" ","")
         if hailo_hw_version == "8":
-            self.logger.pub_info("Got Hailo HW Version: " + hailo_hw_version)
+            self.logger.log_info("Got Hailo HW Version: " + hailo_hw_version)
             WEIGHTS_FOLDER = 'hailo8'
         elif hailo_hw_version == "10":
-            self.logger.pub_info("Got Hailo HW Version: " + hailo_hw_version)
+            self.logger.log_info("Got Hailo HW Version: " + hailo_hw_version)
             WEIGHTS_FOLDER = 'hailo10'
         else:
             self.logger.log_warn("Got Unknown Hailo HW Version: " + hailo_hw_version)
@@ -114,7 +114,7 @@ class HailoAIF(object):
 
 
 
-        self.logger.pub_info("Looking for model files in folder: " + models_folder_path)
+        self.logger.log_info("Looking for model files in folder: " + models_folder_path)
         models_dict = nepi_aifs.loadModelsDict(MODEL_FRAMEWORK, self.pkg_name, models_folder_path)
         ##################
         # Add custom entries to models_dict if needed here.
@@ -124,12 +124,12 @@ class HailoAIF(object):
         return models_dict
 
     def launchModel(self, model_dict):
-        self.logger.pub_info("Launching Model Node" + str(model_dict['node_name']))
+        self.logger.log_info("Launching Model Node" + str(model_dict['node_name']))
         [success, node_namespace, self.node_dict] = nepi_aifs.launchModelNode(model_dict, self.node_file_dict, self.launch_namespace, self.node_dict)
         return success, node_namespace
 
     def killModel(self, node_name):
-        self.logger.pub_info("Killing Node " + str(node_name))
+        self.logger.log_info("Killing Node " + str(node_name))
         [success, self.node_dict] = nepi_aifs.killModelNode(node_name, self.node_dict)
         return success
 

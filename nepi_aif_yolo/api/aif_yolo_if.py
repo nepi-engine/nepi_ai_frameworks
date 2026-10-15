@@ -117,7 +117,7 @@ class YoloAIF(object):
         model_paths = self.find_yolo_folders(self.models_lib_path)
         models_dict = dict()
         for model_path in model_paths:
-            self.logger.pub_info("Looking for model files in folder: " + model_path)
+            self.logger.log_info("Looking for model files in folder: " + model_path)
             # Grab the list of all existing cfg files
             add_models_dict = nepi_aifs.loadModelsDict(self.MODEL_FRAMEWORK, self.pkg_name, model_path, strict_check = False)
             models_dict.update(add_models_dict)
