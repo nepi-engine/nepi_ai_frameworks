@@ -57,12 +57,12 @@ class YoloAIF(object):
     def __init__(self, aif_dict, launch_namespace, models_lib_path):
       self.pkg_name = aif_dict['pkg_name']
       self.logger = Logger() 
-      self.logger.lob_debug("Instantiating with aif_dict: " +str(aif_dict))
+      self.logger.log_debug("Instantiating with aif_dict: " +str(aif_dict))
 
       if launch_namespace[-1] == "/":
         launch_namespace = launch_namespace[:-1]
       self.launch_namespace = launch_namespace  
-      #self.logger.lob_debug("Launch Namespace: " + self.launch_namespace)
+      #self.logger.log_debug("Launch Namespace: " + self.launch_namespace)
       self.models_lib_path = models_lib_path
 
       self.node_file_dict = aif_dict['node_file_dict']
@@ -124,7 +124,7 @@ class YoloAIF(object):
             ##################
             # Add custom entries to models_dict if needed here.
             ##################
-        self.logger.lob_debug("Returning models dict" + str(models_dict.keys()))
+        self.logger.log_debug("Returning models dict" + str(models_dict.keys()))
         return models_dict
 
 

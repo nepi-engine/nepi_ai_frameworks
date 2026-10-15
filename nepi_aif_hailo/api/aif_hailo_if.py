@@ -120,7 +120,7 @@ class HailoAIF(object):
         # Add custom entries to models_dict if needed here.
         ##################
         self.logger.lob_info("Returning models dict" + str(models_dict.keys()))
-        self.logger.lob_debug("Returning models dict" + str(models_dict))
+        self.logger.log_debug("Returning models dict" + str(models_dict))
         return models_dict
 
     def launchModel(self, model_dict):
